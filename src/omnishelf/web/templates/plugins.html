@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}插件 · OmniShelf{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>插件</h2>
+  <p>
+    管理已安装的插件。宿主当前向插件提供：<code>{{ interfaces|join(', ') }}</code>。
+  </p>
+</hgroup>
+
+{% if error %}<p class="alert-error"><strong>出错了：</strong>{{ error }}</p>{% endif %}
+{% if reloaded %}
+  <p class="alert-ok">已重载：{% for item in reloaded %}<code>{{ item }}</code> {% endfor %}</p>
+{% endif %}
+
+<form method="post" action="/plugins/reload" class="plugin-actions">
+  <button type="submit">全部重载</button>
+  <small>改动插件代码后刷新本页也会自动重载；用下面的按钮可以只重载一个。</small>
+</form>
+
+{% if not plugins %}
+  <article>
+    <p>还没有插件。在 <code>plugins/</code> 下创建一个插件目录即可开始使用。</p>
+  </article>
+{% else %}
+  {% for plugin in plugins %}
+  <article class="plugin-card">
+    <header>
+      <strong>{{ plugin.title }}</strong>
+      <code class="plugin-id">{{ plugin.id }}</code>
+      {% if plugin.version %}<small>v{{ plugin.version }}</small>{% endif %}
+      {% if plugin.state == 'loaded' %}
+        <span class="badge ok">已加载</span>
+      {% elif plugin.state == 'error' %}
+        <span class="badge err">出错</span>
+      {% elif plugin.state == 'disabled' %}
+        <span class="badge">已禁用</span>
+      {% else %}
+        <span class="badge">未加载</span>
+      {% endif %}
+    </header>
+
+    {% if plugin.description %}<p>{{ plugin.description }}</p>{% endif %}
+    <p class="plugin-meta">
+      {% if plugin.author %}作者 {{ plugin.author }} · {% endif %}
+      {% if plugin.requires %}需要接口 <code>{{ plugin.requires|join(', ') }}</code> · {% endif %}
+      {% if plugin.loaded_at %}加载于 {{ plugin.loaded_at|local_time }} · {% endif %}
+      目录 <code>{{ plugin.directory }}</code>
+    </p>
+
+    {% if plugin.error %}
+      <p class="alert-error"><strong>加载失败：</strong><pre class="plugin-trace">{{ plugin.error }}</pre></p>
+    {% endif %}
+
+    {% if plugin.logs %}
+      <details>
+        <summary>插件日志（内存里最近 {{ plugin.logs|length }} 条）</summary>
+        <pre class="plugin-trace">{% for line in plugin.logs %}{{ line }}
+{% endfor %}</pre>
+      </details>
+    {% endif %}
+
+    {% if plugin.log_file %}
+      <p class="plugin-meta">日志文件 <code>{{ plugin.log_file }}</code>（宿主统一收集，
+        插件说的和宿主记的都在这一个文件里）。</p>
+    {% endif %}
+
+    <footer class="plugin-footer">
+      {% if plugin.has_page %}
+        <a href="/plugins/{{ plugin.id }}" role="button">打开页面</a>
+      {% else %}
+        <small>这个插件没有自己的页面。</small>
+      {% endif %}
+      {% if plugin.log_file %}
+        <a href="/logs?plugin={{ plugin.id }}" role="button" class="secondary outline">看日志</a>
+      {% endif %}
+      <form method="post" action="/plugins/reload">
+        <input type="hidden" name="plugin_id" value="{{ plugin.id }}">
+        <button type="submit" class="secondary outline">重载</button>
+      </form>
+      {% if plugin.homepage %}
+        <a href="{{ plugin.homepage }}" target="_blank" rel="noreferrer noopener">主页</a>
+      {% endif %}
+    </footer>
+  </article>
+  {% endfor %}
+{% endif %}
+{% endblock %}

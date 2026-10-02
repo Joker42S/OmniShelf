@@ -1,0 +1,132 @@
+{
+  "media": "game",
+  "media_cn": "游戏",
+  "status": "collect",
+  "status_cn": "玩过",
+  "user": "00000000",
+  "list_url": "https://example.invalid/people/00000000/game?action=collect",
+  "fetched_at": "2026-10-12 00:31:53",
+  "total_pages": 1,
+  "total_items_reported": 5,
+  "pages_fetched": 1,
+  "page_range": [
+    1,
+    null
+  ],
+  "incremental": false,
+  "items": [
+    {
+      "subject_id": "90000001",
+      "title": "示例游戏 一",
+      "year": "2013",
+      "rating": 10,
+      "stars": 5,
+      "marked_date": "2026-10-07",
+      "url": "https://example.invalid/game/90000001/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000001.jpg",
+      "extra": {
+        "info": "PC / PS4 / 动作 / 角色扮演 / 2013-10-28",
+        "platforms": [
+          "PC",
+          "PS4",
+          "动作",
+          "角色扮演"
+        ]
+      },
+      "media": "game",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    },
+    {
+      "subject_id": "90000002",
+      "title": "示例游戏 二",
+      "year": "2005",
+      "rating": null,
+      "stars": null,
+      "marked_date": "2024-01-02",
+      "url": "https://example.invalid/game/90000002/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000002.jpg",
+      "extra": {
+        "info": "NS / 模拟 / 2005-11-08",
+        "platforms": [
+          "NS",
+          "模拟"
+        ]
+      },
+      "media": "game",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    },
+    {
+      "subject_id": "90000003",
+      "title": "示例游戏 三",
+      "year": "",
+      "rating": 6,
+      "stars": 3,
+      "marked_date": "2016-05-05",
+      "url": "https://example.invalid/game/90000003/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000003.jpg",
+      "extra": {
+        "info": "PC / 益智 / 2016-04-01",
+        "platforms": [
+          "PC",
+          "益智"
+        ]
+      },
+      "media": "game",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    },
+    {
+      "subject_id": "90000004",
+      "title": "样例：平台全中文",
+      "year": "2010",
+      "rating": 8,
+      "stars": 4,
+      "marked_date": "2018-03-03",
+      "url": "https://example.invalid/game/90000004/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000004.jpg",
+      "extra": {
+        "info": "动作 / 冒险 / 2010-09-09",
+        "platforms": [
+          "动作",
+          "冒险"
+        ]
+      },
+      "media": "game",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    },
+    {
+      "subject_id": "90000005",
+      "title": "示例游戏 五",
+      "year": "1999",
+      "rating": 4,
+      "stars": 2,
+      "marked_date": "2015-08-27",
+      "url": "https://example.invalid/game/90000005/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000005.jpg",
+      "extra": {
+        "info": "PC / MAC / 动作 / 1999-12-31",
+        "platforms": [
+          "PC",
+          "MAC",
+          "动作"
+        ]
+      },
+      "media": "game",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    }
+  ]
+}

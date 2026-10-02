@@ -1,0 +1,365 @@
+{# 拷贝漫画书架收藏抓取：同步表单 + 进度条 + 上次结果 + 本地文件。
+   宿主会把这个片段塞进站点布局里，所以不重复写导航和样式。 #}
+
+{% if error %}
+  <article class="plugin-body" style="border-left:4px solid #dc2626;padding:.6rem .9rem">
+    <strong>没能执行：</strong>{{ error }}
+  </article>
+{% endif %}
+
+{% if notice %}
+  <article class="plugin-body" style="border-left:4px solid #16a34a;padding:.6rem .9rem">
+    {{ notice }}
+  </article>
+{% endif %}
+
+{% if not importer_available %}
+  <article class="plugin-body" style="border-left:4px solid #d97706;padding:.6rem .9rem">
+    <strong>注意：</strong>宿主当前没有注册 importer <code>{{ importer }}</code>，
+    「同步并导入」会失败（抓取和落盘仍然可用，之后到上传页手动导入）。
+  </article>
+{% endif %}
+
+{% if job %}
+{# 同步进度条。运行中时这一整块每 poll_seconds 秒被它自己替换一次
+   （HTMX 轮询页面、只取 #cm-fetch-status），抓完由服务端把状态换成「结束/失败」，
+   轮询属性随之消失，块里换上了正式报告。 #}
+<section id="cm-fetch-status"{% if job.state == 'running' %}
+         hx-get="/plugins/copymanga_fetch"
+         hx-trigger="every {{ poll_seconds }}s"
+         hx-select="#cm-fetch-status"
+         hx-swap="outerHTML"{% endif %}>
+  {% set pages_max = job.expected_pages or 0 %}
+  <article class="plugin-body">
+    <h3 style="margin-top:0">
+      {% if job.state == 'running' %}正在同步…
+      {% elif job.state == 'error' %}同步失败
+      {% else %}同步结束{% endif %}
+      <small style="font-weight:400">· {{ job.label }}</small>
+    </h3>
+
+    {% if job.state != 'running' %}
+      <progress value="1" max="1"></progress>
+    {% elif pages_max %}
+      <progress value="{{ [job.requests, pages_max]|min }}" max="{{ pages_max }}"></progress>
+    {% else %}
+      <progress></progress>
+    {% endif %}
+
+    <p style="font-size:.88rem">
+      已请求 <strong>{{ job.requests }}</strong> 次{% if pages_max %} / 约 {{ pages_max }} 次{% endif %}
+      · 本次取回 <strong>{{ job.fetched_count }}</strong> 条
+      {% if job.remote_total %}· 书架共 {{ job.remote_total }} 条{% endif %}
+      {% if job.item_count %}· 待导入 {{ job.item_count }} 条{% endif %}
+      · 已用 {{ job.elapsed }} 秒
+    </p>
+    <p><small>{{ job.note }}</small></p>
+
+    {% if job.state == 'running' %}
+      {% if job.notes %}
+        <details open>
+          <summary>已经翻过的页（{{ job.notes|length }} 行）</summary>
+          <pre style="max-height:12rem;overflow:auto;font-size:.78rem">{{ job.notes|join('\n') }}</pre>
+        </details>
+      {% endif %}
+      <p><small>同步在后台跑，这一栏每 {{ poll_seconds }} 秒自己刷新一次。
+        切到别的页面也没关系，回来还能看到进度。</small></p>
+    {% elif job.state == 'error' %}
+      <p><strong style="color:#dc2626">{{ job.error }}</strong></p>
+      <p><small>已经抓到的部分不会丢（状态库是累积的），改好认证再点一次就能接着同步。</small></p>
+    {% endif %}
+  </article>
+
+{% if import_report %}
+<article class="plugin-body" style="border-left:4px solid {% if import_report.error %}#dc2626{% else %}#16a34a{% endif %};padding:.6rem .9rem">
+  <header><strong>导入到 OmniShelf</strong> <small>importer <code>{{ import_report.importer }}</code></small></header>
+  {% if import_report.error %}
+    <p><strong>导入失败：</strong>{{ import_report.error }}</p>
+    <p><small>同步本身没白跑：文件已经在 <code>{{ import_report.path }}</code>，
+      可以稍后到上传页选 importer <code>{{ importer }}</code> 手动导入。</small></p>
+  {% else %}
+    <p>
+      共 {{ import_report.total }} 条 ·
+      <strong>新增 {{ import_report.inserted }}</strong> ·
+      更新 {{ import_report.updated }} ·
+      跳过 {{ import_report.skipped }} ·
+      未变化 {{ import_report.unchanged }} ·
+      错误 {{ import_report.error_count }} · 警告 {{ import_report.warning_count }}
+    </p>
+    <p><small>
+      导入日志 #{{ import_report.log_id }}
+      {% if import_report.archive_path %}· 原始文件已存档{% endif %}
+      {% if manga_total is not none %}· 库里现在有 <strong>{{ manga_total }}</strong> 条漫画{% endif %}
+    </small></p>
+    {% if import_report.errors %}
+      <h5>导入错误（前 {{ import_report.errors|length }} 条）</h5>
+      <ul>{% for item in import_report.errors %}<li><small>记录 {{ item.get('record') }}：{{ item.get('message') }}</small></li>{% endfor %}</ul>
+    {% endif %}
+    {% if import_report.warnings %}
+      <details>
+        <summary>导入警告（{{ import_report.warnings|length }} 条）</summary>
+        <ul>{% for item in import_report.warnings %}<li><small>记录 {{ item.get('record') }}：{{ item.get('message') }}</small></li>{% endfor %}</ul>
+      </details>
+    {% endif %}
+  {% endif %}
+</article>
+{% endif %}
+
+{% if report %}
+  <article class="plugin-body">
+    <h3 style="margin-top:0">
+      同步完成：<code>{{ report.host }}</code>
+      <small>（{{ report.mode == 'full' and '全量' or '增量' }} ·
+        漫画 ·
+        账号 {{ report.user.get('nickname') or report.user.get('username') or '—' }}）</small>
+    </h3>
+    <table role="grid">
+      <tbody>
+        <tr><th style="width:11rem">远端 / 本地</th>
+            <td>书架上 <strong>{{ report.remote_total }}</strong> 条 ·
+              状态库累计 <strong>{{ report.local_total }}</strong> 条
+              {% if report.watermark is not none %}<br><small>水位线 {{ report.watermark }}
+                （本地已知的最新一条收藏编号，增量就翻到这儿为止）</small>{% endif %}</td></tr>
+        <tr><th>这次的变化</th>
+            <td>新增 <strong>{{ report.added }}</strong> · 更新 {{ report.updated }} ·
+              未变化 {{ report.unchanged }}
+              {% if report.restored %}· 重新收藏 {{ report.restored }}{% endif %}
+              {% if report.removed %}· 已取消收藏 {{ report.removed }}{% endif %}</td></tr>
+        <tr><th>请求次数 / 耗时</th>
+            <td>{{ report.requests }} 次 / {{ report.elapsed }} 秒
+              <small>（每页 {{ report.page_size }} 条，一次翻到末页）</small></td></tr>
+        <tr><th>停止原因</th><td>{{ report.stop_reason or '—' }}</td></tr>
+        {% if report.auth_note %}
+          <tr><th>认证</th><td>{{ report.auth_note }}</td></tr>
+        {% endif %}
+        <tr><th>待导入</th>
+            <td>{{ report.import_items }} 条<small>（已取消收藏的不算）</small></td></tr>
+        {% if not report.ordering_verified %}
+          <tr><th>排序</th>
+              <td><span style="color:#d97706">这次没能确认「按加到書架時間降序」</span>
+                <small>{{ '，已自动改跑全量，所以没有漏数据' if report.fell_back_to_full else '' }}</small></td></tr>
+        {% endif %}
+        {% if report.removed %}
+          <tr><th>取消收藏</th>
+              <td><small>这 {{ report.removed }} 条只在状态库里打标记，<strong>不会</strong>从 OmniShelf 里删掉。</small></td></tr>
+        {% endif %}
+        <tr><th>状态库</th>
+            <td><code>{{ report.store_file }}</code>（{{ report.store_mb }} MB）
+              {% if not report.include_raw %}<br><small>没留接口原始返回（导入用不到，文件能小一大半）</small>{% endif %}</td></tr>
+        <tr><th>导入文件</th>
+            <td><code>{{ report.import_file }}</code>（{{ report.import_mb }} MB）</td></tr>
+      </tbody>
+    </table>
+
+    <p><small>
+      导入文件就是 importer <code>{{ importer }}</code> 认的格式，可以直接到
+      <a href="/upload">上传</a> 页手动导入。
+      入库判重靠漫画自己的编号，所以重复导入同一批只会「未变化」。
+      书架上被取消收藏的作品<strong>不会</strong>从库里删掉（导入接口只新增/更新）。
+    </small></p>
+
+    {% if report.notes %}
+      <details open>
+        <summary>同步明细（{{ report.notes|length }} 行）</summary>
+        <pre style="max-height:16rem;overflow:auto;font-size:.78rem">{{ report.notes|join('\n') }}</pre>
+      </details>
+      <p><small>这份明细只在内存里，关掉页面就没了；每一页都同时记进了宿主的运行日志，
+        重启也查得到：<a href="/logs?plugin=copymanga_fetch&follow=0">看日志</a>。</small></p>
+    {% endif %}
+    {% if json_text %}
+      <details>
+        <summary>导入文件预览（前几条，可以直接全选复制）</summary>
+        <textarea readonly rows="12" style="width:100%;font-size:.72rem">{{ json_text }}</textarea>
+      </details>
+    {% endif %}
+  </article>
+{% endif %}
+</section>
+{% endif %}
+
+<article class="plugin-body">
+  <h3 style="margin-top:0">拷贝漫画书架抓取
+    <small style="font-weight:400">· 插件 id <code>copymanga_fetch</code></small></h3>
+  <p style="font-size:.86rem">
+    把你自己在拷贝漫画书架上的<strong>收藏</strong>同步下来，存成可以直接导入的 JSON，
+    再用内置 importer <code>{{ importer }}</code> 入库（和上传页/CLI 同一条链路：来源判重、
+    写 import_logs、原始文件存档）。书名 / 作者 / 题材 / 连载状态 / 最新话 / 读到第几话 /
+    更新时间 / 封面 / 详情页地址都会带上。
+  </p>
+
+  <form method="post" action="/plugins/copymanga_fetch">
+    <input type="hidden" name="form" value="fetch">
+    <div class="grid">
+      <label>站点地址
+        <input type="text" name="host" value="{{ form.host }}" placeholder="{{ default_host }}">
+        <small>换镜像站时改这里；贴整条书架页地址也行，只取前面的域名。</small>
+      </label>
+      <label>token
+        <input type="text" name="token" value="{{ form.token }}" placeholder="登录 token">
+        <small>优先用这个；令牌会存进本地配置，密码不会。留空就用已经存着的那个。<br>
+          怎么拿：浏览器开发者工具（F12）→ Network → 请求头里的
+          <code>Authorization: Token &lt;token&gt;</code>，或者直接看 Cookie 里的
+          <code>token</code>，复制值粘进来。</small>
+      </label>
+    </div>
+
+    <div class="cm-private">
+      <label class="cm-switch">
+        <input type="checkbox" name="username_password" value="on"
+               {% if not form.token and form.username %}checked{% endif %}>
+        没有令牌，改用<strong>用户名和密码</strong>登录（登录后换到的令牌会留下，密码不会）
+      </label>
+      <div class="grid cm-auth">
+        <label>用户名
+          <input type="text" name="username" value="{{ form.username }}" autocomplete="username"
+                 placeholder="拷贝漫画账号">
+        </label>
+        <label>密码
+          <input type="password" name="password" autocomplete="current-password"
+                 placeholder="只在本次同步里用，不会存下来">
+        </label>
+      </div>
+    </div>
+
+    <div class="grid">
+      <label>同步方式
+        <select name="mode">
+          <option value="incremental" {% if form.mode == 'incremental' %}selected{% endif %}>
+            增量（只翻到上次的位置，日常用这个）</option>
+          <option value="full" {% if form.mode == 'full' %}selected{% endif %}>
+            全量（所有页都过一遍，顺便标出已取消收藏的）</option>
+        </select>
+        <small>增量快（通常一两次请求）；全量慢，但能发现老条目的变化和取消收藏。</small>
+      </label>
+      <label>每页条数
+        <input type="number" name="page_size" min="1" max="500" value="{{ form.page_size }}">
+        <small>最多 500，越大请求越少、越快。</small>
+      </label>
+    </div>
+
+    <div class="grid">
+      <label>翻页间隔（秒）
+        <input type="number" name="delay" min="0" max="10" step="0.1" value="{{ form.delay }}">
+        <small>默认 0.3；不着急可以调大一点。</small>
+      </label>
+      <label>请求超时（秒）
+        <input type="number" name="timeout" min="5" max="120" value="{{ form.timeout }}">
+        <small>单次请求等多久算失败（默认 40）。</small>
+      </label>
+    </div>
+
+    <input type="hidden" name="has_raw" value="1">
+    <label>
+      <input type="checkbox" name="include_raw" value="on" {% if form.include_raw %}checked{% endif %}>
+      状态库里保留接口返回的全部字段（文件会大不少；导入用不到）
+    </label>
+    <p><small>只抓漫画：书架上的「動畫」在本库里没有对应的类型，抓下来也无处可放。</small></p>
+
+    <div class="cm-actions">
+      <button type="submit" name="action" value="fetch">开始同步</button>
+      <button type="submit" name="action" value="fetch_import" class="secondary">同步并导入</button>
+    </div>
+    <small>
+      同步在后台跑，上方的进度条会实时显示翻到第几页，这期间可以去别的页面。
+      第一次用请先抓一次<strong>全量</strong>把整个书架落下来，以后用增量就很快。
+    </small>
+  </form>
+
+  <details>
+    <summary>保存默认值（站点地址 / 认证 / 同步方式 / 翻页参数 会自动记住）</summary>
+    <form method="post" action="/plugins/copymanga_fetch">
+      <input type="hidden" name="action" value="save">
+      <input type="hidden" name="form" value="save">
+      <div class="grid">
+        <label>默认站点地址 <input type="text" name="host" value="{{ config.host }}"></label>
+        <label>默认 token <input type="text" name="token" value="{{ config.token }}"></label>
+        <label>默认账号 <input type="text" name="username" value="{{ config.username }}"></label>
+      </div>
+      <p><small>密码<strong>不会</strong>存进配置：以后每次同步时现填密码，
+        或者粘一个长期有效的 token。</small></p>
+      <div class="grid">
+        <label>默认同步方式
+          <select name="mode">
+            <option value="incremental" {% if config.mode == 'incremental' %}selected{% endif %}>增量</option>
+            <option value="full" {% if config.mode == 'full' %}selected{% endif %}>全量</option>
+          </select></label>
+        <label>默认每页条数 <input type="number" name="page_size" min="1" max="500" value="{{ config.page_size }}"></label>
+      </div>
+      <div class="grid">
+        <label>默认翻页间隔（秒） <input type="number" name="delay" min="0" max="10" step="0.1" value="{{ config.delay }}"></label>
+        <label>默认请求超时（秒） <input type="number" name="timeout" min="5" max="120" value="{{ config.timeout }}"></label>
+      </div>
+      <input type="hidden" name="has_raw" value="1">
+      <label><input type="checkbox" name="include_raw" value="on" {% if config.include_raw %}checked{% endif %}>
+        默认保留接口返回的全部字段</label>
+      <button type="submit">保存默认值</button>
+    </form>
+  </details>
+</article>
+
+<article class="plugin-body">
+  <h3 style="margin-top:0">本地已有的数据</h3>
+  <p style="font-size:.82rem">
+    数据目录：<code>{{ data_dir }}</code>。
+    {% if last.fetched_at %}上次同步 {{ last.fetched_at }}（{{ last.mode == 'full' and '全量' or '增量' }}，
+      远端 {{ last.remote_total }} 条 / 本地 {{ last.local_total }} 条）。{% else %}
+      还没有同步过。{% endif %}
+    {% if manga_total is not none %}库里现在有 <strong>{{ manga_total }}</strong> 条漫画。{% endif %}
+  </p>
+  {% if files %}
+    <table role="grid">
+      <thead><tr><th>是什么</th><th>文件</th><th>大小</th><th>改动时间</th></tr></thead>
+      <tbody>
+        {% for row in files %}
+          <tr>
+            <td>{{ row.what }}</td>
+            <td><code>{{ row.name }}</code></td>
+            <td>{{ row.size_mb }} MB</td>
+            <td><small>{{ row.modified }}</small></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p><small>目录里还没有文件。填好上面的表单点「开始同步」就会生成。</small></p>
+  {% endif %}
+
+  <details>
+    <summary>命令行也能干同样的事</summary>
+    <pre style="font-size:.78rem">omnishelf plugin copymanga_fetch fetch_import \
+  --token &lt;你的登录 token&gt; \
+  --mode full                # 日常刷新用 --mode incremental（默认）
+  # 用账号密码登录：--username &lt;账号&gt; --password &lt;密码&gt;
+  # 只同步不入库：--dry-run</pre>
+  </details>
+</article>
+
+<style>
+  .cm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: center;
+    margin-bottom: 0.4rem;
+  }
+
+  .cm-actions button {
+    margin: 0;
+    width: auto;
+  }
+
+  .cm-switch {
+    font-weight: 600;
+  }
+
+  /* 勾了「改用用户名密码」才展开那两栏；浏览器不认 :has() 就一直摊开 */
+  @supports selector(:has(*)) {
+    .cm-auth {
+      display: none;
+    }
+
+    .cm-private:has(.cm-switch input:checked) .cm-auth {
+      display: grid;
+    }
+  }
+</style>

@@ -1,0 +1,37 @@
+<tr id="row-{{ row.id }}">
+  <td class="cover-cell">
+    <a href="/items/{{ row.id }}">
+      <img class="cover-thumb" src="{{ cover_url(row) }}" alt="{{ row.title }}" loading="lazy">
+    </a>
+  </td>
+  <td>
+    <a href="/items/{{ row.id }}">{{ row.title }}</a>
+    {% if row.subtitle %}<br><small>{{ row.subtitle }}</small>{% endif %}
+  </td>
+  <td>
+    {% if row.creators %}
+      {% for name in row.creators %}<a href="/?creator={{ name|urlencode }}"
+         title="只看 {{ name }} 的作品">{{ name }}</a>{% if not loop.last %}<span class="creator-sep">,</span> {% endif %}{% endfor %}
+    {% else %}<small>-</small>{% endif %}
+  </td>
+  <td>{{ row.kind|kind_label }}</td>
+  <td>{{ row.year if row.year is not none else '-' }}</td>
+  <td>
+    <form class="quick-edit" method="post" action="/items/{{ row.id }}/quick"
+          hx-post="/items/{{ row.id }}/quick" hx-target="#row-{{ row.id }}" hx-swap="outerHTML"
+          hx-trigger="change">
+      <select name="status" aria-label="状态">
+        <option value="" {% if not row.status %}selected{% endif %}>未设置</option>
+        {% for name in statuses %}
+          <option value="{{ name }}" {% if row.status == name %}selected{% endif %}>{{ status_labels[name] }}</option>
+        {% endfor %}
+      </select>
+      <input type="number" name="rating" step="0.1" min="0" max="10" placeholder="评分"
+             aria-label="评分" value="{{ row.rating if row.rating is not none else '' }}">
+    </form>
+  </td>
+  <td><small class="nowrap">{{ row.created_at|local_time }}</small></td>
+  <td>
+    {% for tag in row.tags %}<a class="tag" href="/?tags_include={{ tag|urlencode }}">#{{ tag }}</a> {% endfor %}
+  </td>
+</tr>

@@ -1,0 +1,61 @@
+{
+  "items": [
+    {
+      "title": "Dune",
+      "year": 1965,
+      "status": "done",
+      "rating": 9.0,
+      "author": "Frank Herbert",
+      "publisher": "Chilton",
+      "isbn": "9780441013593",
+      "pages": 412,
+      "language": "en",
+      "douban_id": "1080732",
+      "isbn13": "9780441013593",
+      "tags": ["sci-fi"],
+      "notes": "沙丘第一部。"
+    },
+    {
+      "title": "The Left Hand of Darkness",
+      "year": 1969,
+      "status": "done",
+      "rating": 8.8,
+      "author": "Ursula K. Le Guin",
+      "publisher": "Ace Books",
+      "pages": 304,
+      "language": "en"
+    },
+    {
+      "title": "Neuromancer",
+      "year": 1984,
+      "status": "doing",
+      "rating": 8.0,
+      "author": "William Gibson",
+      "publisher": "Ace Books",
+      "pages": 271,
+      "language": "en",
+      "tags": ["cyberpunk"]
+    },
+    {
+      "title": "Solaris",
+      "year": 1961,
+      "status": "wishlist",
+      "rating": null,
+      "author": "Stanisław Lem",
+      "publisher": "MON",
+      "pages": 204,
+      "language": "pl"
+    },
+    {
+      "title": "Piranesi",
+      "year": 2020,
+      "status": "done",
+      "rating": 9.2,
+      "author": "Susanna Clarke",
+      "publisher": "Bloomsbury",
+      "pages": 245,
+      "language": "en",
+      "tags": ["fantasy"]
+    }
+  ]
+}

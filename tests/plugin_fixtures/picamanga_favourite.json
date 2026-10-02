@@ -1,0 +1,138 @@
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "comics": {
+      "docs": [
+        {
+          "_id": "64a000000000000000003006",
+          "title": "合成漫画六",
+          "author": "合成作者戊",
+          "categories": [
+            "長篇",
+            "悬疑"
+          ],
+          "tags": [],
+          "likesCount": 16,
+          "totalLikes": 306,
+          "totalViews": 5006,
+          "pagesCount": 26,
+          "epsCount": 8,
+          "finished": true,
+          "thumb": {
+            "originalName": "thumbnail-003006.jpg",
+            "path": "/media/64a000000000000000003006/thumbnail/thumbnail-003006.jpg",
+            "fileServer": "https://fs.pica.synthetic.invalid"
+          }
+        },
+        {
+          "_id": "64a000000000000000003005",
+          "title": "合成漫画五",
+          "author": "合成作者丁",
+          "categories": [
+            "同人"
+          ],
+          "tags": [],
+          "likesCount": 15,
+          "totalLikes": 305,
+          "totalViews": 5005,
+          "pagesCount": 25,
+          "epsCount": 3,
+          "finished": false,
+          "thumb": {
+            "originalName": "thumbnail-003005.jpg",
+            "path": "/media/64a000000000000000003005/thumbnail/thumbnail-003005.jpg",
+            "fileServer": "https://fs.pica.synthetic.invalid"
+          }
+        },
+        {
+          "_id": "64a000000000000000003004",
+          "title": "合成漫画四",
+          "author": "合成作者甲",
+          "categories": [
+            "長篇",
+            "战斗"
+          ],
+          "tags": [],
+          "likesCount": 14,
+          "totalLikes": 304,
+          "totalViews": 5004,
+          "pagesCount": 24,
+          "epsCount": 30,
+          "finished": false,
+          "thumb": {
+            "originalName": "thumbnail-003004.jpg",
+            "path": "/media/64a000000000000000003004/thumbnail/thumbnail-003004.jpg",
+            "fileServer": "https://fs.pica.synthetic.invalid"
+          }
+        },
+        {
+          "_id": "64a000000000000000003003",
+          "title": "合成漫画三",
+          "author": "合成作者丙",
+          "categories": [
+            "短篇"
+          ],
+          "tags": [],
+          "likesCount": 13,
+          "totalLikes": 303,
+          "totalViews": 5003,
+          "pagesCount": 23,
+          "epsCount": 1,
+          "finished": true,
+          "thumb": {
+            "originalName": "thumbnail-003003.jpg",
+            "path": "/media/64a000000000000000003003/thumbnail/thumbnail-003003.jpg",
+            "fileServer": "https://fs.pica.synthetic.invalid"
+          }
+        },
+        {
+          "_id": "64a000000000000000003002",
+          "title": "合成漫画二",
+          "author": "合成作者乙",
+          "categories": [
+            "長篇",
+            "恋爱"
+          ],
+          "tags": [],
+          "likesCount": 12,
+          "totalLikes": 302,
+          "totalViews": 5002,
+          "pagesCount": 22,
+          "epsCount": 12,
+          "finished": true,
+          "thumb": {
+            "originalName": "thumbnail-003002.jpg",
+            "path": "/media/64a000000000000000003002/thumbnail/thumbnail-003002.jpg",
+            "fileServer": "https://fs.pica.synthetic.invalid"
+          }
+        },
+        {
+          "_id": "64a000000000000000003001",
+          "title": "合成漫画一",
+          "author": "合成作者甲",
+          "categories": [
+            "長篇",
+            "熱血"
+          ],
+          "tags": [],
+          "likesCount": 11,
+          "totalLikes": 301,
+          "totalViews": 5001,
+          "pagesCount": 21,
+          "epsCount": 5,
+          "finished": false,
+          "thumb": {
+            "originalName": "thumbnail-003001.jpg",
+            "path": "/media/64a000000000000000003001/thumbnail/thumbnail-003001.jpg",
+            "fileServer": "https://fs.pica.synthetic.invalid"
+          }
+        }
+      ],
+      "total": 6,
+      "page": 1,
+      "pages": 1,
+      "limit": 20
+    }
+  }
+}

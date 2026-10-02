@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}{{ row.title }} · OmniShelf{% endblock %}
+{% block content %}
+{% if error %}<p class="alert-error"><strong>出错了：</strong>{{ error }}</p>{% endif %}
+{% if ok %}<p class="alert-ok">{{ ok }}</p>{% endif %}
+
+<p><a href="/">← 返回列表</a></p>
+
+<hgroup>
+  <h2>{{ row.title }}{% if row.year %} <small>({{ row.year }})</small>{% endif %}</h2>
+  <p>
+    {{ row.kind|kind_label }} ·
+    {% if row.creators %}{{ row.creators|join(", ") }} · {% endif %}
+    {{ row.status|status_label }} ·
+    评分 {{ row.rating|rating_text }} ·
+    <code>{{ row.id }}</code>
+  </p>
+</hgroup>
+
+{# 四个 block 按井字（2×2）排列：封面 / 通用信息、专属字段 / 来源与时间线 #}
+<div class="blocks-2x2">
+
+  {# ------------------------------------------------ 左上：封面 #}
+  <article>
+    <header>封面</header>
+    {% if cover_missing %}
+      <p class="alert-error">封面文件缺失：<code>{{ row.cover_path }}</code>（可重新上传）</p>
+    {% endif %}
+    <img class="cover" src="{{ cover_url(row) }}" alt="{{ row.title }} 的封面">
+    {% if row.cover_path %}
+      <form method="post" action="/items/{{ row.id }}/cover/delete">
+        <button type="submit" class="secondary outline">删除封面</button>
+      </form>
+    {% else %}
+      <p><small>还没有封面（上面是默认图）。</small></p>
+    {% endif %}
+    <form method="post" action="/items/{{ row.id }}/cover" enctype="multipart/form-data">
+      <label>上传封面（jpg/png/webp/gif，≤8MiB）
+        <input type="file" name="cover" accept="image/*" required>
+      </label>
+      <button type="submit">上传</button>
+    </form>
+  </article>
+
+  {# ------------------------------------------- 右上：通用信息 #}
+  <form method="post" action="/items/{{ row.id }}">
+    <input type="hidden" name="section" value="core">
+    <article>
+      <header>通用信息</header>
+      <label>标题 <input type="text" name="title" value="{{ row.title }}" required></label>
+      <label>副标题 <input type="text" name="subtitle" value="{{ row.subtitle or '' }}"></label>
+      <label>创作者 <small>（作者 / 画师 / 声优 / 社团，多个用逗号分隔，可留空）</small>
+        <input type="text" name="creators" value="{{ row.creators|join(', ') }}">
+      </label>
+      <div class="grid">
+        <label>年份 <input type="number" name="year" value="{{ row.year if row.year is not none else '' }}"></label>
+        <label>评分 (0-10，留空=未评分)
+          <input type="number" step="0.1" min="0" max="10" name="rating"
+                 value="{{ row.rating if row.rating is not none else '' }}">
+        </label>
+      </div>
+      <label>状态
+        <select name="status">
+          <option value="" {% if not row.status %}selected{% endif %}>未设置</option>
+          {% for name in statuses %}
+            <option value="{{ name }}" {% if row.status == name %}selected{% endif %}>{{ status_labels[name] }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>标签（逗号分隔）<input type="text" name="tags" value="{{ row.tags|join(', ') }}"></label>
+      <label>备注 <textarea name="notes" rows="4">{{ row.notes or '' }}</textarea></label>
+      <button type="submit">保存通用信息</button>
+    </article>
+  </form>
+
+  {# ------------------------------------------- 左下：专属字段 #}
+  <form method="post" action="/items/{{ row.id }}">
+    <input type="hidden" name="section" value="extra">
+    <article>
+      <header>
+        专属字段
+        <small>（{{ kind_def.label }} 特有，存在扩展信息里）</small>
+      </header>
+      {% if kind_def.extra_fields %}
+        {% for field in kind_def.extra_fields %}
+          {% set value = row.extra.get(field.name) %}
+          <label>
+            {{ field.label }}
+            {% if field.required %}<small>必填</small>{% endif %}
+            {% if field.type == 'bool' %}
+              <input type="checkbox" name="extra.{{ field.name }}" {% if value %}checked{% endif %}>
+            {% elif field.type == 'int' %}
+              <input type="number" step="1" name="extra.{{ field.name }}" value="{{ value if value is not none else '' }}">
+            {% elif field.type == 'float' %}
+              <input type="number" step="any" name="extra.{{ field.name }}" value="{{ value if value is not none else '' }}">
+            {% elif field.type == 'list[str]' %}
+              <input type="text" name="extra.{{ field.name }}" value="{{ (value or [])|join(', ') }}" placeholder="逗号分隔">
+            {% else %}
+              <input type="text" name="extra.{{ field.name }}" value="{{ value if value is not none else '' }}">
+            {% endif %}
+          </label>
+        {% endfor %}
+        <button type="submit">保存专属字段</button>
+      {% else %}
+        <p><small>{{ kind_def.label }} 还没有声明专属字段。</small></p>
+      {% endif %}
+    </article>
+  </form>
+
+  {# --------------------------------------- 右下：来源与时间线（各小节从上到下） #}
+  <article>
+    <header>来源与时间线</header>
+
+    <h5>外部 ID</h5>
+    {% if row.external_ids %}
+      <ul>
+        {% for link in row.external_ids %}
+          <li><code>{{ link.source }}:{{ link.external_id }}</code>
+            {% if link.url %} <a href="{{ link.url }}" rel="noreferrer noopener" target="_blank">链接</a>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p><small>没有外部 ID（手工录入，或来源没有提供标识）。</small></p>
+    {% endif %}
+
+    {% if unknown_extra %}
+      <h5>未声明的扩展字段</h5>
+      <p><small>导入时保留，未做校验：</small></p>
+      <ul>{% for key, value in unknown_extra.items() %}<li><code>{{ key }}</code>: {{ value }}</li>{% endfor %}</ul>
+    {% endif %}
+
+    <h5>时间线</h5>
+    <ul>
+      <li>created_at: <code>{{ row.created_at }}</code></li>
+      <li>updated_at: <code>{{ row.updated_at }}</code></li>
+      <li>deleted_at: <code>{{ row.deleted_at or '-' }}</code></li>
+    </ul>
+
+    <h5>来源</h5>
+    <ul>
+      <li>kind: <code>{{ row.kind }}</code></li>
+      <li>extra 字段数: {{ row.extra|length }}</li>
+    </ul>
+  </article>
+
+</div>
+{% endblock %}

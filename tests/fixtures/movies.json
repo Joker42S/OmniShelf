@@ -1,0 +1,121 @@
+{
+  "items": [
+    {
+      "title": "Blade Runner",
+      "tagline": "Man has made his match... now it's his problem.",
+      "year": 1982,
+      "status": "done",
+      "rating": 9.0,
+      "overview": "A blade runner must pursue and terminate four replicants who stole a ship.",
+      "director": "Ridley Scott",
+      "cast": [
+        "Harrison Ford",
+        "Rutger Hauer",
+        "Sean Young"
+      ],
+      "runtime": 117,
+      "country": "USA",
+      "tmdb_rating": 8.1,
+      "genres": [
+        "sci-fi",
+        "noir"
+      ],
+      "tmdb_id": 78
+    },
+    {
+      "name": "Blade Runner",
+      "year": 1982,
+      "status": "wishlist",
+      "rating": null,
+      "director": "Ridley Scott",
+      "overview": "重复条目：与上一条 title + year 完全相同，应走去重规则 2。",
+      "genres": [
+        "sci-fi",
+        "noir",
+        "dystopia"
+      ]
+    },
+    {
+      "title": "Spirited Away",
+      "tagline": "The tunnel led Chihiro to a mysterious town.",
+      "year": 2001,
+      "status": "done",
+      "rating": 9.5,
+      "director": "Hayao Miyazaki",
+      "cast": [
+        "Rumi Hiiragi",
+        "Miyu Irino"
+      ],
+      "runtime": 125,
+      "country": "Japan",
+      "tmdb_rating": 8.5,
+      "genres": [
+        "animation",
+        "fantasy"
+      ],
+      "tmdb_id": 129
+    },
+    {
+      "title": "Spirited Away",
+      "year": 2003,
+      "status": "wishlist",
+      "rating": null,
+      "director": "Hayao Miyazaki",
+      "overview": "相似标题但年份不同：应写入 pending_merges，且绝不自动合并。"
+    },
+    {
+      "title": "Arrival",
+      "year": 2016,
+      "status": "done",
+      "rating": 8.5,
+      "director": "Denis Villeneuve",
+      "cast": [
+        "Amy Adams",
+        "Jeremy Renner"
+      ],
+      "runtime": 116,
+      "country": "USA",
+      "tmdb_rating": 7.6,
+      "genres": [
+        "sci-fi",
+        "drama"
+      ],
+      "tmdb_id": 329865
+    },
+    {
+      "title": "Arrival",
+      "year": 2016,
+      "status": "dropped",
+      "rating": 5.0,
+      "overview": "重复条目：title + year 命中，走规则 2（只补空字段，不覆盖已有评分）。",
+      "genres": [
+        "sci-fi",
+        "drama",
+        "linguistics"
+      ]
+    },
+    {
+      "title": "Perfect Blue",
+      "year": 1997,
+      "status": "doing",
+      "rating": 8.0,
+      "director": "Satoshi Kon",
+      "runtime": 81,
+      "country": "Japan",
+      "genres": [
+        "animation",
+        "thriller"
+      ]
+    },
+    {
+      "title": "Your Name.",
+      "year": 2016,
+      "status": "wishlist",
+      "rating": null,
+      "director": "Makoto Shinkai",
+      "runtime": 106,
+      "country": "Japan",
+      "letterboxd_uri": "https://boxd.it/unknown-extra-field"
+    }
+  ]
+}

@@ -1,0 +1,186 @@
+{
+  "works": [
+    {
+      "id": 1003,
+      "title": "合成作品三",
+      "circle_id": 9003,
+      "name": "合成社团C",
+      "nsfw": true,
+      "release": "2023-05-01",
+      "dl_count": 1003,
+      "price": 1320,
+      "review_count": 2,
+      "rate_count": 88,
+      "rate_average_2dp": 4.51,
+      "rate_count_detail": [
+        {
+          "review_point": 5,
+          "count": 70,
+          "ratio": 80
+        }
+      ],
+      "rank": [
+        {
+          "term": "day",
+          "category": "all",
+          "rank": 3,
+          "rank_date": "2023-05-01"
+        }
+      ],
+      "translation_info": {
+        "id": 1003,
+        "blob": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "work_attributes": {
+        "internal": 1003
+      },
+      "has_subtitle": false,
+      "create_date": "2023-05-01",
+      "vas": [],
+      "tags": [
+        {
+          "id": 101,
+          "name": "治愈",
+          "i18n": {
+            "zh-cn": {
+              "name": "治愈"
+            }
+          }
+        },
+        {
+          "id": 102,
+          "name": "低语",
+          "i18n": {
+            "zh-cn": {
+              "name": "低语"
+            }
+          }
+        }
+      ],
+      "language_editions": [
+        {
+          "lang": "JPN",
+          "label": "日本語",
+          "workno": "RJ00001003",
+          "display_order": 1
+        }
+      ],
+      "original_workno": null,
+      "other_language_editions_in_db": [],
+      "age_category_string": "adult",
+      "duration": 900,
+      "source_type": "DLSITE",
+      "source_id": "RJ00001003",
+      "source_url": "https://www.dlsite.com/maniax/work/=/product_id/RJ00001003.html",
+      "playlist_rel_updated_at": "2024-04-20 08:00:00",
+      "userRating": null,
+      "review_text": null,
+      "circle": {
+        "id": 9003,
+        "name": "合成社团C",
+        "source_id": "RG9001",
+        "source_type": "DLSITE"
+      },
+      "samCoverUrl": "https://api.asmr.one/api/cover/1003.jpg?type=sam",
+      "thumbnailCoverUrl": "https://api.asmr.one/api/cover/1003.jpg?type=240x240",
+      "mainCoverUrl": "https://api.asmr.one/api/cover/1003.jpg?type=main",
+      "updated_at": "2024-05-02 21:45:00"
+    },
+    {
+      "id": 1004,
+      "title": "合成作品四",
+      "circle_id": 9004,
+      "name": "合成社团",
+      "nsfw": true,
+      "release": "2022-01-15",
+      "dl_count": 1004,
+      "price": 1320,
+      "review_count": 2,
+      "rate_count": 88,
+      "rate_average_2dp": 4.51,
+      "rate_count_detail": [
+        {
+          "review_point": 5,
+          "count": 70,
+          "ratio": 80
+        }
+      ],
+      "rank": [
+        {
+          "term": "day",
+          "category": "all",
+          "rank": 3,
+          "rank_date": "2022-01-15"
+        }
+      ],
+      "translation_info": {
+        "id": 1004,
+        "blob": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "work_attributes": {
+        "internal": 1004
+      },
+      "has_subtitle": false,
+      "create_date": "2022-01-15",
+      "vas": [
+        {
+          "id": "va-0",
+          "name": "合成声优A"
+        }
+      ],
+      "tags": [
+        {
+          "id": 101,
+          "name": "治愈",
+          "i18n": {
+            "zh-cn": {
+              "name": "治愈"
+            }
+          }
+        },
+        {
+          "id": 102,
+          "name": "低语",
+          "i18n": {
+            "zh-cn": {
+              "name": "低语"
+            }
+          }
+        }
+      ],
+      "language_editions": [
+        {
+          "lang": "JPN",
+          "label": "日本語",
+          "workno": "RJ00001004",
+          "display_order": 1
+        }
+      ],
+      "original_workno": null,
+      "other_language_editions_in_db": [],
+      "age_category_string": "adult",
+      "duration": 60,
+      "source_type": "DLSITE",
+      "source_id": "RJ00001004",
+      "source_url": "https://www.dlsite.com/maniax/work/=/product_id/RJ00001004.html",
+      "playlist_rel_updated_at": "2024-04-01 07:00:00",
+      "userRating": 3,
+      "review_text": "合成评价二",
+      "circle": {
+        "id": 9004,
+        "name": "合成社团",
+        "source_id": "RG9001",
+        "source_type": "DLSITE"
+      },
+      "samCoverUrl": "https://api.asmr.one/api/cover/1004.jpg?type=sam",
+      "thumbnailCoverUrl": "https://api.asmr.one/api/cover/1004.jpg?type=240x240",
+      "mainCoverUrl": "https://api.asmr.one/api/cover/1004.jpg?type=main",
+      "updated_at": "2024-05-01 08:05:00"
+    }
+  ],
+  "pagination": {
+    "page": 2,
+    "pageSize": 2,
+    "totalCount": 4
+  }
+}

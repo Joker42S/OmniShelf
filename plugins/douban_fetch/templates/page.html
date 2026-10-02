@@ -1,0 +1,335 @@
+{# 豆瓣收藏抓取：表单 + 上次抓取报告 + 已有快照列表。
+   宿主会把这个片段塞进站点布局里，所以不重复写导航和样式。 #}
+
+{% if error %}
+  <article class="plugin-body" style="border-left:4px solid #dc2626;padding:.6rem .9rem">
+    <strong>没能执行：</strong>{{ error }}
+  </article>
+{% endif %}
+
+{% if report and report.saved is sameas true %}
+  <article class="plugin-body" style="border-left:4px solid #16a34a;padding:.6rem .9rem">
+    默认配置已保存{% if imported %}（页面已刷新）{% endif %}。
+  </article>
+{% endif %}
+
+{% if job %}
+{# 抓取进度条。运行中时这一整块每 poll_seconds 秒被它自己替换一次
+   （HTMX 轮询页面、只取 #df-fetch-status），抓完由服务端把状态换成「结束/失败」，
+   轮询属性也随之消失，块里换上了正式报告。 #}
+<section id="df-fetch-status"{% if job.state == 'running' %}
+         hx-get="/plugins/douban_fetch"
+         hx-trigger="every {{ poll_seconds }}s"
+         hx-select="#df-fetch-status"
+         hx-swap="outerHTML"{% endif %}>
+  {% set pages_max = job.expected_pages or job.total_pages or 0 %}
+  <article class="plugin-body">
+    <h3 style="margin-top:0">
+      {% if job.state == 'running' %}正在抓取…
+      {% elif job.state == 'error' %}抓取失败
+      {% else %}抓取结束{% endif %}
+      <small style="font-weight:400">· {{ job.label }}</small>
+    </h3>
+
+    {% if job.state != 'running' %}
+      <progress value="1" max="1"></progress>
+    {% elif pages_max %}
+      <progress value="{{ [job.pages_fetched, pages_max]|min }}" max="{{ pages_max }}"></progress>
+    {% else %}
+      <progress></progress>
+    {% endif %}
+
+    <p style="font-size:.88rem">
+      已抓 <strong>{{ job.pages_fetched }}</strong> 页{% if pages_max %} / 计划 {{ pages_max }} 页{% endif %}
+      · 本次 <strong>{{ job.fetched_count }}</strong> 条（新增 {{ job.new_count }}）
+      · 快照累计 {{ job.item_count }} 条
+      {% if job.reported_count %}· 豆瓣报 {{ job.reported_count }} 条{% endif %}
+      · 已用 {{ job.elapsed }} 秒
+    </p>
+    <p><small>{{ job.note }}</small></p>
+
+    {% if job.state == 'running' %}
+      {% if job.notes %}
+        <details open>
+          <summary>已抓的页（{{ job.notes|length }} 行）</summary>
+          <pre style="max-height:12rem;overflow:auto;font-size:.78rem">{{ job.notes|join('\n') }}</pre>
+        </details>
+      {% endif %}
+      <p><small>抓取在后台跑，这一栏每 {{ poll_seconds }} 秒自己刷新一次。
+        切到别的页面也没关系，回来还能看到进度。</small></p>
+    {% elif job.state == 'error' %}
+      <p><strong style="color:#dc2626">{{ job.error }}</strong></p>
+      <p><small>已经抓到的部分不会丢（快照按页累积），稍后可以接着用增量抓取续抓。</small></p>
+    {% endif %}
+  </article>
+
+{% if import_report %}
+<article class="plugin-body" style="border-left:4px solid {% if import_report.error %}#dc2626{% else %}#16a34a{% endif %};padding:.6rem .9rem">
+  <header><strong>导入到 OmniShelf</strong></header>
+  {% if import_report.error %}
+    <p><strong>导入失败：</strong>{{ import_report.error }}</p>
+    <p><small>抓取本身没白跑：快照已经在 <code>{{ import_report.path }}</code>，
+      可以稍后到上传页手动导入。</small></p>
+  {% else %}
+    <p>
+      共 {{ import_report.total }} 条 ·
+      <strong>新增 {{ import_report.inserted }}</strong> ·
+      更新 {{ import_report.updated }} ·
+      跳过 {{ import_report.skipped }} ·
+      未变化 {{ import_report.unchanged }} ·
+      错误 {{ import_report.error_count }} · 警告 {{ import_report.warning_count }}
+    </p>
+    <p><small>
+      importer <code>{{ import_report.importer }}</code> · 导入日志 #{{ import_report.log_id }}
+      {% if import_report.archive_path %}· 原始文件已存档{% endif %}
+    </small></p>
+    {% if import_report.errors %}
+      <h5>导入错误（前 {{ import_report.errors|length }} 条）</h5>
+      <ul>{% for item in import_report.errors %}<li><small>记录 {{ item.get('record') }}：{{ item.get('message') }}</small></li>{% endfor %}</ul>
+    {% endif %}
+  {% endif %}
+</article>
+{% endif %}
+
+{% if report and report.item_count is defined %}
+  <article class="plugin-body">
+    <h3 style="margin-top:0">
+      抓取完成：{{ report.media_cn }} · {{ report.status_cn }}
+      <small>（用户 {{ report.user }}）</small>
+    </h3>
+    <table role="grid">
+      <tbody>
+        <tr><th style="width:11rem">本次抓到</th><td><strong>{{ report.fetched_count }}</strong> 条（其中新增 {{ report.new_count }} 条）</td></tr>
+        <tr><th>快照累计</th><td><strong>{{ report.item_count }}</strong> 条
+          <small>（含之前几次抓的；同一媒体+列表是一个文件，反复抓会不断累积/更新）</small></td></tr>
+        <tr>
+          <th>认证</th>
+          <td>{{ report.auth_display or ('带 Cookie' if report.auth == 'cookie' else '游客（未认证）') }}
+            <small>（{% if report.auth == 'cookie' %}这一趟带了 Cookie{% else %}这一趟没带 Cookie{% endif %}，
+              差额里可能混着「仅自己可见」的条目{% if report.auth == 'cookie' and report.logged_in is not true %}；
+              豆瓣按游客渲染，Cookie 大概已失效{% endif %}）</small></td>
+        </tr>
+        <tr><th>豆瓣报告总数</th><td>{{ report.reported_count if report.reported_count is not none else '—' }} 条</td></tr>
+        <tr>
+          <th>已删除/隐藏</th>
+          <td>
+            {% if report.deleted_or_hidden %}
+              {{ report.deleted_or_hidden }} 条
+              <small>（豆瓣里已被删除或隐藏的条目，仍计入站点总数但列表页不渲染；不是抓漏。
+                {% if report.auth != 'cookie' %}这一趟是游客身份，「仅自己可见」的条目也会计在这堆里{% endif %}）</small>
+            {% elif report.deleted_or_hidden is not none %}
+              无
+              <small>（豆瓣报的条数和抓到的完全一致）</small>
+            {% else %}
+              —
+              <small>（快照还没覆盖到最后一页，先不计算；抓完整了这里会显示差额）</small>
+            {% endif %}
+          </td>
+        </tr>
+        <tr><th>实际抓取页数</th><td>{{ report.pages_fetched }} 页{% if report.total_pages %} / 共 {{ report.total_pages }} 页{% endif %}</td></tr>
+        <tr><th>停止原因</th><td>{{ report.stop_reason or '—' }}</td></tr>
+        <tr><th>耗时</th><td>{{ report.elapsed }} 秒</td></tr>
+        <tr>
+          <th>快照文件</th>
+          <td><code>{{ report.saved }}</code>（{{ report.saved_kb }} KB）<br>
+              <small>详情版：<code>{{ report.detail }}</code></small></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>下一步：导入 OmniShelf</h4>
+    <ol>
+      <li>到 <a href="/upload">上传</a> 页；</li>
+      <li>importer 选 <code>{{ report.importer }}</code>；</li>
+      <li>选中文件 <code>{{ report.saved }}</code>（就在上面的路径里），上传即可。</li>
+    </ol>
+    {% if report.notes %}
+      <details open>
+        <summary>抓取明细（{{ report.notes|length }} 行）</summary>
+        <pre style="max-height:16rem;overflow:auto;font-size:.78rem">{{ report.notes|join('\n') }}</pre>
+      </details>
+      <p><small>这份明细只在内存里，关掉页面就没了；每一页都同时记进了宿主的运行日志，
+        重启也查得到：<a href="/logs?plugin=douban_fetch&follow=0">看日志</a>。</small></p>
+    {% endif %}
+    {% if json_text %}
+      <details>
+        <summary>快照内容预览（可直接全选复制）</summary>
+        <textarea readonly rows="12" style="width:100%;font-size:.72rem">{{ json_text }}</textarea>
+      </details>
+    {% endif %}
+  </article>
+{% endif %}
+</section>
+{% endif %}
+
+<article class="plugin-body">
+  <h3 style="margin-top:0">豆瓣收藏抓取 <small style="font-weight:400">· 插件 id <code>douban_fetch</code></small></h3>
+  <p style="font-size:.86rem">
+    抓到的是 <strong>看过/读过/玩过</strong>（也可选在看/想读等），存成 JSON 后由你手动上传导入。
+    差额（豆瓣报的比你抓到的多）有两种：<strong>豆瓣里已删除的条目</strong>（正常），
+    以及标了「仅自己可见」、<strong>游客看不到的条目</strong>——后者要在上面填登录 Cookie 才抓得到。
+  </p>
+
+  <form method="post" action="/plugins/douban_fetch">
+    <div class="grid">
+      <label>媒体类型
+        <select name="media" id="df-media">
+          {% for value, label in media_choices %}
+            <option value="{{ value }}" {% if value == config.media %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>列表
+        <select name="status">
+          {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if value == config.status %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>豆瓣用户 ID
+        <input type="text" name="user" value="{{ fetch_user }}" placeholder="个人主页 URL 里那串数字"
+               inputmode="numeric" pattern="[0-9]*">
+      </label>
+    </div>
+
+    <div class="grid">
+      <label>页码范围
+        <input type="text" name="pages" value="{{ config.pages }}" placeholder="1 / 1-5 / 47- / 0">
+        <small>每页 15 条。<code>0</code> 全抓（默认），<code>1</code> 只抓第一页，
+          <code>47-</code> 从第 47 页抓到底（续抓就用这个）。</small>
+      </label>
+      <label>请求间隔（秒）
+        <input type="number" name="delay" min="1" max="30" step="0.5" value="{{ config.delay }}">
+        <small>豆瓣限速敏感，别低于 2 秒；抓多了建议 5 秒以上。</small>
+      </label>
+    </div>
+
+    <label>
+      <input type="checkbox" name="incremental" {% if config.incremental %}checked{% endif %}>
+      增量抓取（读到已有快照，抓到重复页就停；适合日常更新）
+    </label>
+
+    <label>豆瓣登录 Cookie
+      <input type="password" name="cookie" autocomplete="off"
+             placeholder="{{ '已存 ' + auth_display + ' · 留空即沿用' if has_cookie else 'dbcl2=…（可再带上 ck=…）' }}">
+      <small>
+        {% if has_cookie %}当前认证：<strong>{{ auth_display }}</strong>。值不回显，留空点抓取就沿用它。
+        {% else %}
+        抓<strong>自己的列表</strong>建议填上：豆瓣会把部分条目设成「仅自己可见」，
+        游客视角连<strong>总数都会少报</strong>（实测同一列表：游客 1395 条 / 登录 1402 条）。
+        {% endif %}
+        怎么拿：浏览器登录豆瓣 → 开发者工具 → Application/存储 → Cookies →
+        把 <code>dbcl2</code>（必需）连同 <code>ck</code> 复制成 <code>名字=值</code> 粘进来，
+        两列（<code>dbcl2&nbsp;&nbsp;&nbsp;值</code>）或整串 Header 值都认。
+        它会存在本地 <code>plugins_data/douban_fetch/config.toml</code>（不进仓库、不进日志，
+        日志与页面只报字段名）。
+      </small>
+    </label>
+    {% if has_cookie %}
+    <label>
+      <input type="checkbox" name="clear_cookie"> 清除已存的 Cookie（这次按游客身份抓，之后也不再带）
+    </label>
+    {% endif %}
+
+    <div class="df-fetch-actions">
+      <button type="submit" name="action" value="fetch">开始抓取</button>
+      <button type="submit" name="action" value="fetch_import" class="secondary">抓取并导入</button>
+    </div>
+    <small>
+      抓取在后台跑，上方的进度条会实时显示抓到第几页，这期间可以去别的页面。
+      一页约 {{ config.delay }} 秒：抓几十页就是几分钟，进度条会一直显示跑到哪了。
+      <br>
+      <strong>抓取并导入</strong> = 抓完直接入库，和上传页走同一条链路。
+    </small>
+  </form>
+
+  <details>
+    <summary>保存这些为默认值（也可以给每个媒体单独设用户 ID）</summary>
+    <form method="post" action="/plugins/douban_fetch">
+      <input type="hidden" name="action" value="save">
+      <input type="hidden" name="form" value="save">
+      {# 表单里没画成控件的项用隐藏域带上，避免「只改一个字段」把其它配置打回默认 #}
+      <input type="hidden" name="render_media" value="{{ config.media }}">
+      <input type="hidden" name="render_status" value="{{ config.status }}">
+      <div class="grid">
+        <label>默认用户 ID <input type="text" name="user" value="{{ config.user }}" inputmode="numeric"></label>
+        <label>默认媒体
+          <select name="media">
+            {% for value, label in media_choices %}
+              <option value="{{ value }}" {% if value == config.media %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>默认列表
+          <select name="status">
+            {% for value, label in status_choices %}
+              <option value="{{ value }}" {% if value == config.status %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <div class="grid">
+        <label>默认页码 <input type="text" name="pages" value="{{ config.pages }}"></label>
+        <label>默认间隔 <input type="number" name="delay" min="1" max="30" step="0.5" value="{{ config.delay }}"></label>
+      </div>
+      <label>
+        <input type="checkbox" name="incremental" {% if config.incremental %}checked{% endif %}>
+        默认增量抓取
+      </label>
+      <details>
+        <summary>给某个媒体单独指定用户 ID（留空=用默认）</summary>
+        <div class="grid">
+          {% for value, label in media_choices %}
+            <label>{{ label }}
+              <input type="text" name="user_{{ value }}"
+                     value="{{ config.overrides.get(value, '') if config.overrides else '' }}"
+                     inputmode="numeric" placeholder="留空用默认">
+            </label>
+          {% endfor %}
+        </div>
+      </details>
+      <button type="submit">保存默认值</button>
+    </form>
+  </details>
+</article>
+
+<article class="plugin-body">
+  <h3 style="margin-top:0">已有快照</h3>
+  <p style="font-size:.82rem">数据目录：<code>{{ data_dir }}</code></p>
+  {% if snapshots %}
+    <table role="grid">
+      <thead>
+        <tr><th>文件</th><th>列表</th><th>条数</th><th>已删除/隐藏</th><th>抓取时间</th><th>导入用 importer</th></tr>
+      </thead>
+      <tbody>
+        {% for row in snapshots %}
+          <tr>
+            <td><code>{{ row.file }}</code><br><small>{{ row.size_kb }} KB</small></td>
+            <td>{{ row.status_cn or row.status }}</td>
+            <td>{{ row.item_count }}</td>
+            <td>{{ row.deleted_or_hidden if row.deleted_or_hidden is not none else '—' }}</td>
+            <td><small>{{ row.fetched_at }}</small></td>
+            <td><code>{{ row.importer }}</code></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p><small>还没有快照。填好上面的表单点「开始抓取」就会生成。</small></p>
+  {% endif %}
+</article>
+
+<style>
+  .df-fetch-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: center;
+    margin-bottom: 0.4rem;
+  }
+
+  .df-fetch-actions button {
+    margin: 0;
+    width: auto;
+  }
+</style>

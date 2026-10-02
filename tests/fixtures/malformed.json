@@ -1,0 +1,30 @@
+[
+  {
+    "year": 2001,
+    "director": "Nobody",
+    "overview": "缺少 title：normalize 阶段应报错，且不中断整批导入。"
+  },
+  {
+    "title": "Bad Year Movie",
+    "year": "MMXX",
+    "director": "Nobody",
+    "overview": "year 是非法字符串：应报错跳过。"
+  },
+  {
+    "title": "Ghost in the Shell",
+    "year": "1995",
+    "status": "done",
+    "rating": 8.0,
+    "director": "Mamoru Oshii",
+    "runtime": 83,
+    "country": "Japan",
+    "tmdb_id": "9323",
+    "overview": "唯一合法的一条：year 是数字字符串，应被宽松地转成 1995。"
+  },
+  {
+    "title": "   ",
+    "year": 2000,
+    "director": "Nobody",
+    "overview": "title 是空白字符串：应报错跳过。"
+  }
+]

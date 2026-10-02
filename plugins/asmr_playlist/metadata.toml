@@ -1,0 +1,11 @@
+# 每个插件一个目录，这个文件是「说明书」+ 加载入口声明。
+[plugin]
+id = "asmr_playlist"
+title = "ASMR.ONE 收藏抓取"
+version = "1.0.0"
+description = "从 asmr.one 的公开播放列表或私人收藏（需要认证）抓全量/增量/指定范围的作品，存成可直接导入的 JSON，并用内置 importer asmr_one 直接入库"
+author = "OmniShelf"
+entry = "plugin.py"
+# query：查库里的 asmr 条目数、确认 importer 在不在
+# import：抓完直接入库（走和上传页/CLI 完全一样的链路）
+requires = ["query", "import"]

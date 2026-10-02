@@ -1,0 +1,388 @@
+/* OmniShelf 的一点补充样式，主体交给 Pico.css。 */
+
+.badge {
+  display: inline-block;
+  padding: 0 0.5rem;
+  border-radius: 1rem;
+  background: var(--pico-primary-background);
+  color: var(--pico-primary-inverse);
+  font-size: 0.8rem;
+}
+
+.tag {
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cover {
+  max-width: 100%;
+  max-height: 420px;
+  border-radius: var(--pico-border-radius);
+}
+
+.card {
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+  padding: 0.75rem 1rem;
+}
+
+.alert-error {
+  border-left: 4px solid var(--pico-del-color);
+  padding-left: 0.75rem;
+}
+
+.alert-ok {
+  border-left: 4px solid var(--pico-ins-color);
+  padding-left: 0.75rem;
+}
+
+table td small {
+  color: var(--pico-muted-color);
+}
+
+/* 列表页封面缩略图 */
+.cover-thumb {
+  width: 48px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}
+
+.cover-cell {
+  width: 60px;
+}
+
+/* 列表页行内编辑：状态 + 评分 */
+.quick-edit {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  margin: 0;
+}
+
+.quick-edit select,
+.quick-edit input {
+  margin: 0;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.85rem;
+  height: auto;
+}
+
+.quick-edit select {
+  min-width: 6.5rem;
+}
+
+.quick-edit input {
+  width: 4.5rem;
+}
+
+.hint {
+  font-weight: normal;
+  font-size: 0.75rem;
+  color: var(--pico-muted-color);
+}
+
+.pager {
+  margin-bottom: 0.5rem;
+}
+
+.pager ul {
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pager a,
+.pager strong,
+.pager span {
+  padding: 0.15rem 0.5rem;
+}
+
+/* 详情页：四个 block 按井字（2×2）排列 */
+.blocks-2x2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--pico-block-spacing-vertical) var(--pico-grid-column-gap);
+  margin-bottom: var(--pico-block-spacing-vertical);
+}
+
+@media (min-width: 992px) {
+  .blocks-2x2 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* 网格单元自己控制间距：article 默认的 margin-bottom 会造成高度不齐 */
+.blocks-2x2 > article,
+.blocks-2x2 > form,
+.blocks-2x2 > form > article {
+  margin-bottom: 0;
+  height: 100%;
+}
+
+.blocks-2x2 > form {
+  display: flex;
+}
+
+.blocks-2x2 > form > article {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.blocks-2x2 > form > article > button:last-child {
+  margin-top: auto; /* 保存按钮沉底，视觉上对齐 */
+}
+
+.blocks-2x2 header small {
+  font-weight: normal;
+  font-size: 0.75rem;
+  color: var(--pico-muted-color);
+}
+
+/* 详情页 block 内的小节（外部 ID / 时间线 / 来源…）从上到下排列，给足纵向间距 */
+.blocks-2x2 article h5 {
+  margin: 1.25rem 0 0.25rem;
+  font-size: 0.95rem;
+}
+
+.blocks-2x2 article h5:first-of-type {
+  margin-top: 0;
+}
+
+.blocks-2x2 article h5 + ul,
+.blocks-2x2 article h5 + p {
+  margin-bottom: 0.5rem;
+}
+
+/* 列表页：筛选标签（点一下移除） */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.chip {
+  background: var(--pico-secondary-background);
+  color: var(--pico-secondary-inverse);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+
+/* 排序表头 */
+th a {
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.sort-ind {
+  color: var(--pico-muted-color);
+  font-size: 0.8rem;
+}
+
+/* 高级筛选 */
+details.advanced {
+  margin-bottom: 0.75rem;
+}
+
+details.advanced > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+details.advanced select[multiple] {
+  height: auto;
+  min-height: 9rem;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* 列表页表格：数字列不要换行 */
+td .quick-edit select {
+  min-width: 6.5rem;
+}
+
+/* 标签筛选选择器：左（可选标签）/ 中（包含·排除按钮）/ 右（两个文本框）
+   用 grid + minmax(0, …)：三栏宽度由容器决定，内容再宽也撑不破（不会意外换行），
+   所以不依赖媒体查询，任何窗口宽度下都是「左列表 — 中间按钮 — 右两个框」。 */
+.tag-picker {
+  margin-bottom: 0.5rem;
+}
+
+.tag-picker-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) auto minmax(0, 3fr);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.tag-pool-label,
+.tag-values {
+  min-width: 0; /* 允许收缩：下拉框/输入框的固有宽度不会把格子撑开 */
+  margin-bottom: 0;
+}
+
+.tag-pool {
+  height: auto;
+  min-height: 11rem;
+  margin-bottom: 0;
+}
+
+.tag-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.tag-actions button {
+  margin: 0;
+  white-space: nowrap;
+  width: 100%;
+  min-width: 6rem;
+}
+
+.tag-values {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tag-values input {
+  margin-bottom: 0;
+}
+
+/* 手机宽度（极窄）才退化成上下排列 */
+@media (max-width: 480px) {
+  .tag-picker-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tag-actions {
+    flex-direction: row;
+  }
+}
+
+.tag-values input.flash {
+  outline: 2px solid var(--pico-primary);
+  transition: outline-color 0.2s ease-out;
+}
+
+/* 插件页 */
+.plugin-card header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.plugin-id {
+  font-size: 0.85rem;
+}
+
+.plugin-meta {
+  font-size: 0.85rem;
+  color: var(--pico-muted-color);
+  word-break: break-all;
+}
+
+.plugin-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.plugin-footer form {
+  margin: 0;
+}
+
+/* Pico 的 button / [role=button] 默认 100% 宽；插件卡片里要并排 */
+.plugin-footer button,
+.plugin-footer a[role="button"] {
+  margin: 0;
+  width: auto;
+}
+
+.plugin-footer form {
+  margin: 0;
+  display: flex;
+}
+
+.plugin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.plugin-actions button {
+  margin: 0;
+  width: auto;
+}
+
+.plugin-trace {
+  white-space: pre-wrap;
+  font-size: 0.8rem;
+  margin: 0.25rem 0 0;
+}
+
+.badge.ok {
+  background: var(--pico-ins-color);
+  color: #fff;
+}
+
+.badge.err {
+  background: var(--pico-del-color);
+  color: #fff;
+}
+
+/* 插件自己渲染的内容：里面的表格/图不要溢出卡片 */
+.plugin-body {
+  overflow-x: auto;
+}
+
+/* 列表页创作者：多个名字用逗号分隔 */
+.creator-sep {
+  color: var(--pico-muted-color);
+}
+
+/* 运行日志页：筛选条 + 一块自己滚的等宽日志 */
+.log-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  align-items: end;
+  gap: 1rem;
+}
+
+.log-filters .log-follow {
+  white-space: nowrap;
+}
+
+.log-lines {
+  max-height: 70vh;
+  overflow: auto;
+  padding: 0.75rem;
+  background: var(--pico-secondary-background);
+  border-radius: 4px;
+  line-height: 1.6;
+}
+
+.log-lines .log-error {
+  color: var(--pico-del-color);
+}
+
+.log-lines .log-warning {
+  color: #b8860b;
+}
+
+.log-lines .log-other {
+  color: var(--pico-muted-color);
+}

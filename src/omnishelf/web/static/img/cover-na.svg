@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" viewBox="0 0 120 160" role="img" aria-label="无封面">
+  <rect width="120" height="160" fill="#eef0f2"/>
+  <rect x="0.5" y="0.5" width="119" height="159" fill="none" stroke="#d3d7db"/>
+  <text x="60" y="88" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif"
+        font-size="26" font-weight="600" fill="#9aa3ab">N/A</text>
+</svg>

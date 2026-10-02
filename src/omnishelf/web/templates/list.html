@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}列表 · OmniShelf{% endblock %}
+{% block content %}
+{% import "_pager.html" as pg %}
+
+{% macro sort_link(link) -%}
+  {%- if link -%}
+    <a href="{{ link.url }}" hx-get="{{ link.url }}" hx-target="#items-panel" hx-select="#items-panel"
+       hx-swap="outerHTML" hx-push-url="true" title="点击切换排序">{{ link.label }} <span class="sort-ind">{{ link.indicator }}</span></a>
+  {%- endif -%}
+{%- endmacro %}
+
+<hgroup>
+  <h2>收藏列表</h2>
+  <p>
+    共 {{ stats.total }} 条 ·
+    {% for kind, count in stats.by_kind.items() %}{{ kind|kind_label }} {{ count }}{% if not loop.last %} / {% endif %}{% endfor %}
+    · 待复核 {{ stats.pending_merges }}
+  </p>
+</hgroup>
+
+{% if filter_error %}
+  <p class="alert-error"><strong>筛选条件有问题：</strong>{{ filter_error }}</p>
+{% endif %}
+
+<form id="filters"
+      hx-get="/"
+      hx-target="#items-panel"
+      hx-select="#items-panel"
+      hx-swap="outerHTML"
+      hx-push-url="true"
+      hx-trigger="submit, change from:select[name='kind'], change from:select[name='status'], keyup changed delay:300ms from:input[name='search'], keyup changed delay:300ms from:input[name='title_prefix']">
+  <div class="grid">
+    <label>
+      搜索标题
+      <input type="search" name="search" value="{{ (filters.search if filters else none) or '' }}"
+             placeholder="只搜标题，包含匹配…">
+    </label>
+    <label>
+      类型 kind
+      <select name="kind">
+        <option value="">全部</option>
+        {% for name in kind_names %}
+          <option value="{{ name }}" {% if filters and filters.kind == name %}selected{% endif %}>
+            {{ kind_labels[name] }} ({{ name }})
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      状态
+      <select name="status">
+        <option value="">全部</option>
+        {% for name in statuses %}
+          <option value="{{ name }}" {% if filters and filters.status == name %}selected{% endif %}>
+            {{ status_labels[name] }} ({{ name }})
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      标题前缀
+      <input type="text" name="title_prefix" value="{{ (filters.title_prefix if filters else none) or '' }}"
+             placeholder="前缀 LIKE">
+    </label>
+  </div>
+
+  <details class="advanced" {% if advanced_open %}open{% endif %}>
+    <summary>高级筛选</summary>
+
+    <div class="grid">
+      <label>
+        评分下限
+        <input type="number" name="rating_min" step="0.1" min="0" max="10"
+               value="{{ '%g'|format(filters.rating_min) if filters and filters.rating_min is not none else '' }}">
+      </label>
+      <label>
+        评分上限
+        <input type="number" name="rating_max" step="0.1" min="0" max="10"
+               value="{{ '%g'|format(filters.rating_max) if filters and filters.rating_max is not none else '' }}">
+      </label>
+      <label>
+        入库日期 · 从
+        <input type="date" name="created_from" value="{{ filters.created_from if filters and filters.created_from else '' }}">
+      </label>
+      <label>
+        入库日期 · 到
+        <input type="date" name="created_to" value="{{ filters.created_to if filters and filters.created_to else '' }}">
+      </label>
+    </div>
+
+    <label>
+      创作者（包含匹配）
+      <input type="text" name="creator" value="{{ filters.creator if filters and filters.creator else '' }}"
+             placeholder="作者 / 画师名，可以只写一部分">
+    </label>
+
+    {# 标签筛选：左 = 可选标签（多选，按名称排序），中 = 包含/排除两个按钮，右 = 两个文本框 #}
+    <fieldset class="tag-picker" id="tag-picker" data-tag-picker>
+      <legend>标签筛选</legend>
+      <div class="tag-picker-grid">
+        <label class="tag-pool-label">
+          可选标签（可多选）
+          <select class="tag-pool" data-tag-pool multiple size="12"
+                  aria-label="可选标签，选择后点中间按钮加入包含或排除">
+            {% for tag in all_tags %}
+              <option value="{{ tag }}">{{ tag }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <div class="tag-actions">
+          <button type="button" data-tag-move="include" class="outline">包含 ↓</button>
+          <button type="button" data-tag-move="exclude" class="outline">排除 ↓</button>
+        </div>
+
+        <div class="tag-values">
+          <label>
+            包含的标签
+            <input type="text" name="tags_include" data-tag-target="include"
+                   value="{{ tags_include_text }}"
+                   placeholder="点中间「包含」加入，或直接输入，逗号分隔">
+          </label>
+          <label>
+            排除的标签
+            <input type="text" name="tags_exclude" data-tag-target="exclude"
+                   value="{{ tags_exclude_text }}"
+                   placeholder="点中间「排除」加入，或直接输入，逗号分隔">
+          </label>
+        </div>
+      </div>
+    </fieldset>
+    <p><small>
+      多选之间是 <strong>AND</strong> 逻辑：包含 = 这些标签<b>都要有</b>，排除 = 这些标签<b>都不能有</b>。
+      右边两个框可以直接编辑（逗号分隔）。评分区间只对已评分的条目生效，日期区间按本地时区的那一天算。
+    </small></p>
+  </details>
+
+  {# 改筛选条件时不要丢掉排序与每页条数 #}
+  <input type="hidden" name="sort" value="{{ filters.sort if filters else 'created_at' }}">
+  <input type="hidden" name="dir" value="{{ 'desc' if (not filters or filters.descending) else 'asc' }}">
+  <input type="hidden" name="per_page" value="{{ pager.per_page }}">
+
+  <div class="grid">
+    <button type="submit">筛选</button>
+    <a href="/" role="button" class="secondary outline">重置</a>
+  </div>
+</form>
+
+<section id="items-panel">
+  {% if active_filters %}
+    <p class="chips">
+      <small>当前筛选：</small>
+      {% for chip in active_filters %}
+        {# 整页跳转：去条件要连上面的表单一起刷新，否则输入框会留着被去掉的值 #}
+        <a class="chip" href="{{ chip.url }}" title="点掉这个条件">{{ chip.label }} ✕</a>
+      {% endfor %}
+    </p>
+  {% endif %}
+  {{ pg.pager(pager) }}
+  {% if rows %}
+  {% set sort_by = {} %}
+  {% for link in sort_links %}{% set _ = sort_by.update({link.name: link}) %}{% endfor %}
+  <figure>
+    <table role="grid">
+      <thead>
+        <tr>
+          <th>封面</th>
+          <th>{{ sort_link(sort_by.get('title')) }}</th>
+          <th>创作者</th>
+          <th>kind</th>
+          <th>{{ sort_link(sort_by.get('year')) }}</th>
+          <th>状态 / {{ sort_link(sort_by.get('rating')) }}</th>
+          <th>{{ sort_link(sort_by.get('created_at')) }}</th>
+          <th>标签</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}{% include "_row.html" %}{% endfor %}
+      </tbody>
+    </table>
+  </figure>
+  {% else %}
+  <p>
+    {% if filter_error %}筛选条件不合法，先改一下上面的条件。
+    {% elif filters and filters.is_filtered %}没有符合当前筛选的收藏。<a href="/">清空筛选</a>
+    {% else %}还没有收藏。可以先用 <code>omnishelf demo</code> 或到 <a href="/upload">上传</a> 页导入数据。{% endif %}
+  </p>
+  {% endif %}
+  {% if pager.pages > 1 %}{{ pg.pager(pager) }}{% endif %}
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/tag-picker.js?v={{ asset_version }}" defer></script>{% endblock %}

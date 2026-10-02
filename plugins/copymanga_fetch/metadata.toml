@@ -1,0 +1,12 @@
+# 每个插件一个目录，这个文件是「说明书」+ 加载入口声明。
+[plugin]
+id = "copymanga_fetch"
+title = "拷贝漫画书架抓取"
+version = "1.0.0"
+description = "同步拷贝漫画（copy4000.com）自己书架上的收藏（增量/全量），抓成可直接导入的 JSON，并用内置 importer copymanga 直接入库"
+author = "OmniShelf"
+entry = "plugin.py"
+# query：查库里有多少条漫画、确认 importer 在不在
+# import：同步完直接入库（走和上传页/CLI 完全一样的链路）
+# 抓取本身在插件目录里自带的 copymanga 包里（原样分发，未改动），不需要宿主给 net 接口。
+requires = ["query", "import"]

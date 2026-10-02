@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# 打包/工具
+.uv/
+.DS_Store
+
+# 插件运行时数据（配置 + 持久化）：代码在 plugins/（进 git），数据不进 git
+plugins_data/
+# copymanga_fetch / picamanga_fetch 里那两份抓取工具各自的默认目录：插件目录下的 data/
+# （末尾那条 data/ 已经挡住）和 config.json（这里点名挡住）。插件跑的时候用的是
+# plugins_data/，这两个只会在「直接进插件目录跑它的命令行」时出现，里面是真实收藏
+# 和真实凭据——绝不能进 git。
+plugins/copymanga_fetch/config.json
+plugins/picamanga_fetch/config.json
+
+# 两份开发记录（决策日志 + 接入真实数据的实操手册）已经搬到仓库同级的
+# collection-dev-docs/，不再随仓库分发：里面记的是真实站点、真实账号形态和实现过程，
+# 公开仓库里没有阅读价值。需要长期遵守的约定已全部归档进 docs/development.md。
+# 这里保留忽略规则是防一手：哪天又把这些内容写回 docs/ 时不会被误提交。
+docs/decisions.md
+docs/importing-real-data.md
+
+# data/ 是独立的 git 仓库（不再作为 submodule）：主仓库不跟踪它的任何内容。
+# 它自己的忽略规则在 data/.gitignore 里（*.db-wal、*.db-shm 等）。
+data/

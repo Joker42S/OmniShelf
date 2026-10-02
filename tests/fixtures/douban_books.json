@@ -1,0 +1,119 @@
+{
+  "media": "book",
+  "media_cn": "读书",
+  "status": "collect",
+  "status_cn": "读过",
+  "user": "00000000",
+  "list_url": "https://example.invalid/people/00000000/book?action=collect",
+  "fetched_at": "2026-10-12 00:31:53",
+  "total_pages": 1,
+  "total_items_reported": 5,
+  "pages_fetched": 1,
+  "page_range": [
+    1,
+    null
+  ],
+  "incremental": false,
+  "items": [
+    {
+      "subject_id": "90000001",
+      "title": "示例图书 甲",
+      "year": "2024",
+      "rating": 10,
+      "stars": 5,
+      "marked_date": "2025-08-07",
+      "url": "https://example.invalid/book/90000001/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000001.jpg",
+      "extra": {
+        "pub": "作者甲 / 译者甲 / 示例出版社 / 2024-5 / 56.00",
+        "publisher": "示例出版社",
+        "comment": ""
+      },
+      "media": "book",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    },
+    {
+      "subject_id": "90000002",
+      "title": "示例图书 乙",
+      "year": "2009",
+      "rating": 8,
+      "stars": 4,
+      "marked_date": "2023-03-03",
+      "url": "https://example.invalid/book/90000002/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000002.jpg",
+      "extra": {
+        "pub": "作者乙、作者丙 / 译者乙 / 另一出版社 / 2009-07-23 / NT$210",
+        "publisher": "另一出版社",
+        "comment": ""
+      },
+      "media": "book",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    },
+    {
+      "subject_id": "90000003",
+      "title": "示例图书 丙（首段即出版社）",
+      "year": "1998",
+      "rating": 6,
+      "stars": 3,
+      "marked_date": "2021-05-05",
+      "url": "https://example.invalid/book/90000003/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000003.jpg",
+      "extra": {
+        "pub": "第三出版社 / 1998-9-5 / 100元",
+        "publisher": "第三出版社",
+        "comment": ""
+      },
+      "media": "book",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    },
+    {
+      "subject_id": "90000004",
+      "title": "示例图书 丁（无出版社）",
+      "year": "",
+      "rating": null,
+      "stars": null,
+      "marked_date": "2016-01-01",
+      "url": "https://example.invalid/book/90000004/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000004.jpg",
+      "extra": {
+        "pub": "作者丁 / 2016-1 / 30元",
+        "publisher": "",
+        "comment": ""
+      },
+      "media": "book",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    },
+    {
+      "subject_id": "90000005",
+      "title": "示例图书 戊",
+      "year": "2011",
+      "rating": 4,
+      "stars": 2,
+      "marked_date": "2015-08-27",
+      "url": "https://example.invalid/book/90000005/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000005.jpg",
+      "extra": {
+        "pub": "作者戊 / 译者戊、译者己 / 第五出版社 / 2011-11 / 45.00",
+        "publisher": "第五出版社",
+        "comment": ""
+      },
+      "media": "book",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    }
+  ]
+}

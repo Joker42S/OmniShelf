@@ -1,0 +1,119 @@
+{
+  "media": "movie",
+  "media_cn": "电影/剧集",
+  "status": "collect",
+  "status_cn": "看过",
+  "user": "00000000",
+  "list_url": "https://example.invalid/people/00000000/movie?action=collect",
+  "fetched_at": "2026-10-12 00:31:53",
+  "total_pages": 1,
+  "total_items_reported": 5,
+  "pages_fetched": 1,
+  "page_range": [
+    1,
+    null
+  ],
+  "incremental": false,
+  "items": [
+    {
+      "subject_id": "90000001",
+      "title": "示例影片 甲",
+      "year": "",
+      "rating": 10,
+      "stars": 5,
+      "marked_date": "2026-10-05",
+      "url": "https://example.invalid/movie/90000001/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000001.jpg",
+      "extra": {
+        "intro": "演员甲 / 演员乙 / 中国大陆 / 导演甲 / 98分钟 / 剧情 / 喜剧",
+        "language": "汉语普通话",
+        "playable": true
+      },
+      "media": "movie",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    },
+    {
+      "subject_id": "90000002",
+      "title": "示例影片 乙",
+      "year": "",
+      "rating": 6,
+      "stars": 3,
+      "marked_date": "2025-02-02",
+      "url": "https://example.invalid/movie/90000002/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000002.jpg",
+      "extra": {
+        "intro": "演员丙 / 日本 / 导演乙 / 45分钟 / 动画",
+        "language": "日语",
+        "playable": false
+      },
+      "media": "movie",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    },
+    {
+      "subject_id": "90000003",
+      "title": "示例影片 丙（无时长）",
+      "year": "",
+      "rating": null,
+      "stars": null,
+      "marked_date": "2022-07-07",
+      "url": "https://example.invalid/movie/90000003/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000003.jpg",
+      "extra": {
+        "intro": "演员丁 / 美国 / 导演丙",
+        "language": "英语",
+        "playable": false
+      },
+      "media": "movie",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    },
+    {
+      "subject_id": "90000004",
+      "title": "示例影片 丁",
+      "year": "",
+      "rating": 8,
+      "stars": 4,
+      "marked_date": "2020-01-01",
+      "url": "https://example.invalid/movie/90000004/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000004.jpg",
+      "extra": {
+        "intro": "演员戊 / 韩国 / 导演丁 / 120分钟 / 悬疑",
+        "language": "韩语",
+        "playable": true
+      },
+      "media": "movie",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    },
+    {
+      "subject_id": "90000005",
+      "title": "示例影片 戊",
+      "year": "",
+      "rating": 4,
+      "stars": 2,
+      "marked_date": "2019-06-06",
+      "url": "https://example.invalid/movie/90000005/",
+      "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000005.jpg",
+      "extra": {
+        "intro": "演员己 / 法国 / 导演戊 / 90分钟 / 文艺",
+        "language": "法语",
+        "playable": false
+      },
+      "media": "movie",
+      "status": "collect",
+      "page": 1,
+      "first_seen": "2026-10-12T00:31:00+08:00",
+      "last_seen": "2026-10-12T00:31:53+08:00"
+    }
+  ]
+}

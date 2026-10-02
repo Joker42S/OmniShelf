@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}待复核 · OmniShelf{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>待复核的模糊匹配</h2>
+  <p>导入时只有「归一化标题相同」命中的记录会落在这里。<strong>永不自动合并</strong>，由你决定。</p>
+</hgroup>
+
+{% if error %}<p class="alert-error"><strong>出错了：</strong>{{ error }}</p>{% endif %}
+{% if ok %}<p class="alert-ok">{{ ok }}</p>{% endif %}
+
+{% if not views %}
+  <p>没有待复核项。</p>
+{% endif %}
+
+{% for view in views %}
+<article>
+  <header>
+    #{{ view.id }} · <small>{{ view.created_at }}</small>
+    {% if view.dangling %}<mark>引用缺失</mark>{% endif %}
+  </header>
+  <p><small>{{ view.reason }}</small></p>
+  <div class="grid">
+    {% for side in [view.item, view.candidate] %}
+      {% set role = 'item（既有）' if loop.first else 'candidate（新导入）' %}
+      <div class="card">
+        <h4>{{ role }}</h4>
+        {% if side %}
+          <p>
+            <a href="/items/{{ side.id }}">{{ side.title }}</a>
+            {% if side.year %} <small>({{ side.year }})</small>{% endif %}<br>
+            <small>
+              {{ side.kind|kind_label }} · {{ side.status|status_label }} ·
+              评分 {{ side.rating|rating_text }} · <code>{{ side.id }}</code>
+            </small>
+          </p>
+          <form method="post" action="/review/{{ view.id }}/merge">
+            <input type="hidden" name="keep" value="{{ side.id }}">
+            <button type="submit">保留这一侧并合并</button>
+          </form>
+        {% else %}
+          <p><small>已被删除或不存在。</small></p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  <footer>
+    <form method="post" action="/review/{{ view.id }}/skip">
+      <button type="submit" class="secondary outline">不是同一条（都保留）</button>
+    </form>
+  </footer>
+</article>
+{% endfor %}
+{% endblock %}

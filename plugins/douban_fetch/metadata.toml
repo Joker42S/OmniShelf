@@ -1,0 +1,12 @@
+# 每个插件一个目录，这个文件是「说明书」+ 加载入口声明。
+[plugin]
+id = "douban_fetch"
+title = "豆瓣收藏抓取"
+version = "1.0.0"
+description = "抓取豆瓣的看过/读过/玩过（及在看/在读/在玩、想看/想读/想玩），存成可直接上传导入的 JSON"
+author = "OmniShelf"
+entry = "plugin.py"
+# query：读配置/统计（其实只用了宿主的数据查询能力，抓取是插件自己用 urllib 做的）
+# import：抓完直接入库（调宿主的导入链路）
+# 宿主以后开放 net 接口时，抓取部分可以再切过去，那时把 "net" 加进来即可。
+requires = ["query", "import"]

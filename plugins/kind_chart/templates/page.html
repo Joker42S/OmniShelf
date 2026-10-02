@@ -1,0 +1,51 @@
+{# 插件自己的页面模板。宿主会把它塞进站点布局里（也可以返回整页 HTML）。 #}
+{% macro bars(rows, color) %}
+  {% if rows %}
+  <svg class="chart" viewBox="0 0 100 {{ rows|length * 9 + 2 }}" preserveAspectRatio="none"
+       role="img" aria-label="条状图" style="width:100%;height:{{ rows|length * 26 + 20 }}px">
+    {% for row in rows %}
+      {% set y = loop.index0 * 9 + 1 %}
+      <rect x="0" y="{{ y }}" width="{{ row.width }}" height="6.5" rx="1" fill="{{ color }}"></rect>
+      <text x="1" y="{{ y + 4.8 }}" font-size="4.2" fill="#fff">{{ row.label }} · {{ row.count }}</text>
+    {% endfor %}
+  </svg>
+  {% else %}
+    <p><small>没有数据可画。</small></p>
+  {% endif %}
+{% endmacro %}
+
+<h3>各分类条目数</h3>
+<p>
+  共 <strong>{{ stats.total }}</strong> 条 · 已删除 {{ stats.deleted }} · 标签 {{ stats.tags }} 种 ·
+  待复核 {{ stats.pending_merges }}
+</p>
+{{ bars(kind_rows, config.bar_color) }}
+
+{% if status_rows %}
+  <h3>按状态分布</h3>
+  {{ bars(status_rows, "#10b981") }}
+{% endif %}
+
+<table role="grid">
+  <thead><tr><th>分类</th><th>数量</th><th>占比</th></tr></thead>
+  <tbody>
+    {% for row in kind_rows %}
+      <tr><td>{{ row.label }}</td><td>{{ row.count }}</td><td>{{ row.percent }}%</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<details>
+  <summary>插件配置（保存在 plugins_data/kind_chart/config.toml）</summary>
+  <form method="post" action="/plugins/kind_chart">
+    <div class="grid">
+      <label>柱子颜色 <input type="color" name="bar_color" value="{{ config.bar_color }}"></label>
+      <label>最多显示几根 <input type="number" name="max_bars" min="1" max="50" value="{{ config.max_bars }}"></label>
+      <label>
+        显示状态分布
+        <input type="checkbox" name="show_status" {% if config.show_status %}checked{% endif %}>
+      </label>
+    </div>
+    <button type="submit">保存配置</button>
+  </form>
+</details>

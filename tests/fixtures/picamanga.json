@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "exportedAt": 1790951158770,
+  "groups": [
+    {
+      "id": "default",
+      "name": "默认",
+      "displayOrder": 0
+    }
+  ],
+  "items": [
+    {
+      "comicId": "aaaa00000000000000000001",
+      "title": "星屑のカルテ | 星尘病历 [中国翻訳] [DL版]",
+      "author": "サンプル作者 (sample_a)",
+      "thumbFileServer": "https://storage-b.picacomic.com",
+      "thumbPath": "tobeimg/EXAMPLEtoken/rs:fill:300:400:0/g:sm/ZXhhbXBsZS5qcGc=.jpg",
+      "thumbOriginalName": "1.jpg",
+      "categories": [
+        "全彩",
+        "同人"
+      ],
+      "groupId": "default",
+      "knownEpsCount": 1,
+      "knownLatestOrder": 1,
+      "remoteUpdatedAt": "2026-09-20T05:27:03.394Z",
+      "finished": true,
+      "checkEnabled": true,
+      "hasNewChapter": false,
+      "latestChapterTitle": "第1話",
+      "latestChapterOrder": 1,
+      "pinnedAt": null,
+      "addedAt": 1790131702315,
+      "updatedAt": 1790131702315
+    },
+    {
+      "comicId": "aaaa00000000000000000002",
+      "title": "銀河鉄道の夜想曲",
+      "author": "サンプル作者B (sample_b)",
+      "thumbFileServer": "https://storage-b.picacomic.com",
+      "thumbPath": "tobs/sub_storage_1/f3/bb/f3bb36a7-1e06-47e3-91ce-da8d09e6c735.jpg",
+      "thumbOriginalName": "1.jpg",
+      "categories": [
+        "長篇",
+        "純愛"
+      ],
+      "groupId": "default",
+      "knownEpsCount": 4,
+      "knownLatestOrder": 1,
+      "remoteUpdatedAt": null,
+      "finished": true,
+      "checkEnabled": true,
+      "hasNewChapter": false,
+      "latestChapterTitle": "第4話",
+      "latestChapterOrder": 1,
+      "pinnedAt": null,
+      "addedAt": 1790131702315,
+      "updatedAt": 1790131702315
+    },
+    {
+      "comicId": "aaaa00000000000000000003",
+      "title": "きみと歩く季節 | 与你同行的季节",
+      "author": "サンプル作者C (sample_c)",
+      "thumbFileServer": "https://storage-b.picacomic.com",
+      "thumbPath": "tobs/sub_storage_1/d3/d2/d3d23c0a-9f18-4898-b4a3-747398c5cdb9.jpg",
+      "thumbOriginalName": "1.jpg",
+      "categories": [
+        "長篇",
+        "人妻",
+        "NTR"
+      ],
+      "groupId": "default",
+      "knownEpsCount": 8,
+      "knownLatestOrder": 0,
+      "remoteUpdatedAt": "2024-06-10T01:50:48.319Z",
+      "finished": false,
+      "checkEnabled": true,
+      "hasNewChapter": false,
+      "latestChapterTitle": null,
+      "latestChapterOrder": 0,
+      "pinnedAt": null,
+      "addedAt": 1790131702315,
+      "updatedAt": 1790131702315
+    },
+    {
+      "comicId": "aaaa00000000000000000004",
+      "title": "雨上がりの図書館",
+      "author": "サンプル作者D (sample_d)",
+      "thumbFileServer": "https://storage-b.picacomic.com",
+      "thumbPath": "tobs/sub_storage_1/8a/df/8adf0000-1111-2222-3333-444455556666.jpg",
+      "thumbOriginalName": "1.jpg",
+      "categories": [
+        "短篇",
+        "全彩",
+        "純愛",
+        "單行本",
+        "姐姐系",
+        "扶他樂園"
+      ],
+      "groupId": "default",
+      "knownEpsCount": 1,
+      "knownLatestOrder": 1,
+      "remoteUpdatedAt": "2026-09-16T12:44:51.963Z",
+      "finished": true,
+      "checkEnabled": true,
+      "hasNewChapter": false,
+      "latestChapterTitle": "全一話",
+      "latestChapterOrder": 1,
+      "pinnedAt": null,
+      "addedAt": 1790131702315,
+      "updatedAt": 1790131702315
+    },
+    {
+      "comicId": "aaaa00000000000000000005",
+      "title": "陽だまり食堂",
+      "author": "サンプル作者E (sample_e)",
+      "thumbFileServer": "https://storage-b.picacomic.com",
+      "thumbPath": "tobeimg/EXAMPLEtoken2/rs:fill:300:400:0/g:sm/ZXhhbXBsZTIuanBn.jpg",
+      "thumbOriginalName": "1.jpg",
+      "categories": [
+        "短篇"
+      ],
+      "groupId": "default",
+      "knownEpsCount": 1,
+      "knownLatestOrder": 1,
+      "remoteUpdatedAt": "2025-01-02T03:04:05.000Z",
+      "finished": true,
+      "checkEnabled": true,
+      "hasNewChapter": false,
+      "latestChapterTitle": "第1話",
+      "latestChapterOrder": 1,
+      "pinnedAt": null,
+      "addedAt": 1790131702315,
+      "updatedAt": 1790131702315
+    },
+    {
+      "comicId": "aaaa00000000000000000006",
+      "title": "夜の図書館 | 夜之图书馆 [漢化]",
+      "author": "サンプル作者F (sample_f)",
+      "thumbFileServer": "https://storage-b.picacomic.com",
+      "thumbPath": "tobs/sub_storage_1/bc/05/bc059f57-c2dd-48fe-8513-ed936c3c81b6.jpg",
+      "thumbOriginalName": "1.jpg",
+      "categories": [
+        "同人",
+        "短篇"
+      ],
+      "groupId": "default",
+      "knownEpsCount": 2,
+      "knownLatestOrder": 0,
+      "remoteUpdatedAt": "2025-12-31T23:59:59.999Z",
+      "finished": false,
+      "checkEnabled": true,
+      "hasNewChapter": false,
+      "latestChapterTitle": null,
+      "latestChapterOrder": 0,
+      "pinnedAt": null,
+      "addedAt": 1790131702315,
+      "updatedAt": 1790131702315
+    }
+  ]
+}

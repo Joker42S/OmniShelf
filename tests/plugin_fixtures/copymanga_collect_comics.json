@@ -1,0 +1,209 @@
+{
+  "code": 200,
+  "message": "请求成功",
+  "results": {
+    "list": [
+      {
+        "uuid": 3006,
+        "name": null,
+        "b_folder": false,
+        "folder_id": null,
+        "last_browse": {
+          "last_browse_id": "ch-3006-read",
+          "last_browse_name": "第10話"
+        },
+        "comic": {
+          "uuid": "11111111-1111-4111-8111-000000003006",
+          "name": "合成漫画一",
+          "path_word": "synthetic-comic-one",
+          "author": [
+            {
+              "name": "合成作者甲",
+              "path_word": "synthetic-0"
+            },
+            {
+              "name": "合成作者乙",
+              "path_word": "synthetic-1"
+            }
+          ],
+          "theme": [
+            {
+              "name": "熱血",
+              "path_word": "theme-0"
+            },
+            {
+              "name": "冒险",
+              "path_word": "theme-1"
+            }
+          ],
+          "cover": "https://img.synthetic.invalid/cover/3006.jpg",
+          "status": 0,
+          "popular": 3006,
+          "datetime_updated": "2026-10-01",
+          "last_chapter_id": "ch-3006-last",
+          "last_chapter_name": "第12話"
+        }
+      },
+      {
+        "uuid": 3005,
+        "name": null,
+        "b_folder": false,
+        "folder_id": null,
+        "last_browse": {
+          "last_browse_id": "ch-3005-read",
+          "last_browse_name": "第5話"
+        },
+        "comic": {
+          "uuid": "11111111-1111-4111-8111-000000003005",
+          "name": "合成漫画二",
+          "path_word": "synthetic-comic-two",
+          "author": [
+            {
+              "name": "合成作者丙",
+              "path_word": "synthetic-0"
+            }
+          ],
+          "theme": [
+            {
+              "name": "日常",
+              "path_word": "theme-0"
+            }
+          ],
+          "cover": "https://img.synthetic.invalid/cover/3005.jpg",
+          "status": 1,
+          "popular": 3005,
+          "datetime_updated": "2026-09-18",
+          "last_chapter_id": "ch-3005-last",
+          "last_chapter_name": "全3卷"
+        }
+      },
+      {
+        "uuid": 3004,
+        "name": null,
+        "b_folder": false,
+        "folder_id": null,
+        "last_browse": {},
+        "comic": {
+          "uuid": "11111111-1111-4111-8111-000000003004",
+          "name": "合成漫画三",
+          "path_word": "synthetic-comic-three",
+          "author": [
+            {
+              "name": "合成作者丙",
+              "path_word": "synthetic-0"
+            }
+          ],
+          "theme": [],
+          "cover": "https://img.synthetic.invalid/cover/3004.jpg",
+          "status": 2,
+          "popular": 3004,
+          "datetime_updated": "2026-08-02",
+          "last_chapter_id": "ch-3004-last",
+          "last_chapter_name": "全1卷"
+        }
+      },
+      {
+        "uuid": 3003,
+        "name": null,
+        "b_folder": false,
+        "folder_id": null,
+        "last_browse": {
+          "last_browse_id": "ch-3003-read",
+          "last_browse_name": "第80話"
+        },
+        "comic": {
+          "uuid": "11111111-1111-4111-8111-000000003003",
+          "name": "合成漫画四",
+          "path_word": "synthetic-comic-four",
+          "author": [
+            {
+              "name": "合成作者甲",
+              "path_word": "synthetic-0"
+            },
+            {
+              "name": "合成作者乙",
+              "path_word": "synthetic-1"
+            }
+          ],
+          "theme": [
+            {
+              "name": "奇幻",
+              "path_word": "theme-0"
+            }
+          ],
+          "cover": "https://img.synthetic.invalid/cover/3003.jpg",
+          "status": 0,
+          "popular": 3003,
+          "datetime_updated": "2026-07-30",
+          "last_chapter_id": "ch-3003-last",
+          "last_chapter_name": "第88話"
+        }
+      },
+      {
+        "uuid": 3002,
+        "name": null,
+        "b_folder": false,
+        "folder_id": null,
+        "last_browse": {
+          "last_browse_id": "ch-3002-read",
+          "last_browse_name": "第3話"
+        },
+        "comic": {
+          "uuid": "11111111-1111-4111-8111-000000003002",
+          "name": "合成漫画五",
+          "path_word": "synthetic-comic-five",
+          "author": [
+            {
+              "name": "合成作者丙",
+              "path_word": "synthetic-0"
+            }
+          ],
+          "theme": [
+            {
+              "name": "悬疑",
+              "path_word": "theme-0"
+            }
+          ],
+          "cover": "https://img.synthetic.invalid/cover/3002.jpg",
+          "status": 1,
+          "popular": 3002,
+          "datetime_updated": "2026-06-11",
+          "last_chapter_id": "ch-3002-last",
+          "last_chapter_name": "全7卷"
+        }
+      },
+      {
+        "uuid": 3001,
+        "name": null,
+        "b_folder": false,
+        "folder_id": null,
+        "last_browse": {},
+        "comic": {
+          "uuid": "11111111-1111-4111-8111-000000003001",
+          "name": "合成漫画六",
+          "path_word": "synthetic-comic-six",
+          "author": [
+            {
+              "name": "合成作者甲",
+              "path_word": "synthetic-0"
+            },
+            {
+              "name": "合成作者乙",
+              "path_word": "synthetic-1"
+            }
+          ],
+          "theme": [],
+          "cover": "https://img.synthetic.invalid/cover/3001.jpg",
+          "status": 0,
+          "popular": 3001,
+          "datetime_updated": "2026-05-06",
+          "last_chapter_id": "ch-3001-last",
+          "last_chapter_name": "第4話"
+        }
+      }
+    ],
+    "total": 6,
+    "limit": 100,
+    "offset": 0
+  }
+}

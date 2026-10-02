@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 合成夹具：形状照 iTunes「资料库导出 XML」，数据全是假的（.invalid 域、假 Persistent ID）。 -->
+<plist version="1.0">
+<dict>
+	<key>Major Version</key>
+	<integer>1</integer>
+	<key>Minor Version</key>
+	<integer>1</integer>
+	<key>Date</key>
+	<date>2026-01-01T00:00:00Z</date>
+	<key>Application Version</key>
+	<string>12.0</string>
+	<key>Music Folder</key>
+	<string>file://localhost/Users/example/Music/</string>
+	<key>Tracks</key>
+	<dict>
+		<key>1</key>
+		<dict>
+			<key>Track ID</key><integer>1</integer>
+			<key>Name</key><string>合成曲 Hello</string>
+			<key>Artist</key><string>Ann &amp; Ben</string>
+			<key>Album Artist</key><string>Ann</string>
+			<key>Album</key><string>Greatest</string>
+			<key>Genre</key><string>Pop</string>
+			<key>Year</key><integer>2001</integer>
+			<key>Track Number</key><integer>3</integer>
+			<key>Track Count</key><integer>12</integer>
+			<key>Total Time</key><integer>213456</integer>
+			<key>Rating</key><integer>80</integer>
+			<key>Comments</key><string>备注：合成数据 example.invalid</string>
+			<key>Persistent ID</key><string>AAA0000000000001</string>
+			<key>Track Type</key><string>File</string>
+			<key>File Folder</key><false/>
+			<key>Location</key><string>file://localhost/Users/example/Music/Track%20One.mp3</string>
+			<key>Kind</key><string>MPEG audio file</string>
+		</dict>
+		<key>2</key>
+		<dict>
+			<key>Track ID</key><integer>2</integer>
+			<key>Name</key><string>Second Track</string>
+			<key>Artist</key><string>Solo One</string>
+			<key>Album</key><string>Greatest</string>
+			<key>Total Time</key><integer>65000</integer>
+			<key>Rating</key><integer>0</integer>
+			<key>Persistent ID</key><string>AAA0000000000002</string>
+			<key>Track Type</key><string>File</string>
+			<key>Location</key><string>file://localhost/D:/Music/02-Two.mp3</string>
+			<key>Kind</key><string>MPEG audio file</string>
+		</dict>
+		<key>3</key>
+		<dict>
+			<key>Track ID</key><integer>3</integer>
+			<key>Name</key><string>流媒体链接，不收</string>
+			<key>Artist</key><string>Someone</string>
+			<key>Track Type</key><string>URL</string>
+			<key>Location</key><string>https://stream.example.invalid/a.m3u8</string>
+		</dict>
+		<key>4</key>
+		<dict>
+			<key>Track ID</key><integer>4</integer>
+			<key>Name</key><string>某期播客</string>
+			<key>Artist</key><string>Host</string>
+			<key>Track Type</key><string>File</string>
+			<key>Kind</key><string>播客</string>
+			<key>File Category</key><string>Podcast</string>
+			<key>Podcast URL</key><string>https://rss.example.invalid/feed.xml</string>
+			<key>Persistent ID</key><string>AAA0000000000004</string>
+			<key>Location</key><string>file://localhost/Users/example/Music/Podcast/ep1.mp3</string>
+		</dict>
+		<key>5</key>
+		<dict>
+			<key>Track ID</key><integer>5</integer>
+			<key>Name</key><string>Collab Track</string>
+			<key>Artist</key><string>Cid、Dee / Eee</string>
+			<key>Album</key><string>Singles</string>
+			<key>Year</key><integer>2020</integer>
+			<key>Rating</key><integer>20</integer>
+			<key>Rating Computed</key><true/>
+			<key>Persistent ID</key><string>AAA0000000000005</string>
+			<key>Track Type</key><string>File</string>
+		</dict>
+		<key>6</key>
+		<dict>
+			<key>Track ID</key><integer>6</integer>
+			<key>Artist</key><string>Nameless</string>
+			<key>Track Type</key><string>File</string>
+			<key>Persistent ID</key><string>AAA0000000000006</string>
+			<key>Location</key><string>file://localhost/Users/example/Music/nameless.mp3</string>
+		</dict>
+	</dict>
+</dict>
+</plist>

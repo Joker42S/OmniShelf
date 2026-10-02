@@ -1,0 +1,151 @@
+{# 本地音乐导入：两个系统选择框按钮 + 手填路径 + 扫描进度条 + 上次结果。
+   宿主会把这个片段塞进站点布局里，所以不重复写导航和样式。 #}
+
+{% if error %}
+  <article class="plugin-body" style="border-left:4px solid #dc2626;padding:.6rem .9rem">
+    <strong>没能执行：</strong>{{ error }}
+  </article>
+{% endif %}
+
+{% if job %}
+{# 扫描进度条。运行中时这一整块每 poll_seconds 秒被它自己替换一次
+   （HTMX 轮询页面、只取 #mi-scan-status），扫完由服务端把状态换成「结束/失败」，
+   轮询属性也随之消失，块里换上了正式报告。 #}
+<section id="mi-scan-status"{% if job.state == 'running' %}
+         hx-get="{{ page }}"
+         hx-trigger="every {{ poll_seconds }}s"
+         hx-select="#mi-scan-status"
+         hx-swap="outerHTML"{% endif %}>
+  <article class="plugin-body">
+    <h3 style="margin-top:0">
+      {% if job.state == 'running' %}正在读文件…
+      {% elif job.state == 'error' %}扫描失败
+      {% else %}扫描结束{% endif %}
+      <small style="font-weight:400">· {{ job.label }}</small>
+    </h3>
+
+    <progress{% if job.state != 'running' %} value="1" max="1"{% endif %}></progress>
+
+    <p style="font-size:.88rem">
+      已读 <strong>{{ job.scanned }}</strong> 个文件 · 已用 {{ job.elapsed }} 秒
+    </p>
+    <p><small>{{ job.note }}</small></p>
+
+    <p><small>扫描目标：{% for path in job.targets %}<code>{{ path }}</code>{% if not loop.last %}　{% endif %}{% endfor %}</small></p>
+
+    {% if job.state == 'running' %}
+      {% if job.notes %}
+        <details>
+          <summary>最近 {{ job.notes|length }} 行进度</summary>
+          <pre style="max-height:12rem;overflow:auto;font-size:.78rem">{{ job.notes|join('\n') }}</pre>
+        </details>
+      {% endif %}
+      <p><small>扫描在后台跑，这一栏每 {{ poll_seconds }} 秒自己刷新一次。
+        切到别的页面也没关系，回来还能看到进度。</small></p>
+    {% elif job.state == 'error' %}
+      <p><strong style="color:#dc2626">{{ job.error }}</strong></p>
+      {% if job.report %}
+        <p><small>清单没丢：<code>{{ job.report.manifest_path }}</code>，
+          稍后可以到上传页手动导入（importer 选 <code>music_files</code>）。</small></p>
+      {% endif %}
+    {% endif %}
+
+    {% if job.report %}
+      <table role="grid">
+        <tbody>
+          <tr><th style="width:11rem">读到标签</th><td><strong>{{ job.report.item_count }}</strong> 条</td></tr>
+          <tr><th>没标签</th><td>{{ job.report.tagless }} 个（拿文件名兜了底）</td></tr>
+          <tr><th>读失败</th><td>{{ job.report.failed }} 个</td></tr>
+          <tr><th>清单</th><td><code>{{ job.report.manifest_path }}</code></td></tr>
+          <tr><th>用时</th><td>{{ job.elapsed }} 秒</td></tr>
+        </tbody>
+      </table>
+      {% if job.report.errors %}
+        <details>
+          <summary>读盘告警（{{ job.report.errors|length }} 条{% if job.report.errors_hidden %}，另有 {{ job.report.errors_hidden }} 条没列出来{% endif %}）</summary>
+          <ul>{% for message in job.report.errors %}<li><small>{{ message }}</small></li>{% endfor %}</ul>
+        </details>
+      {% endif %}
+    {% endif %}
+  </article>
+</section>
+{% endif %}
+
+{% if import_report %}
+<article class="plugin-body" style="border-left:4px solid #16a34a;padding:.6rem .9rem">
+  <header><strong>导入到 OmniShelf</strong></header>
+  <p>
+    共 {{ import_report.total }} 条 ·
+    <strong>新增 {{ import_report.inserted }}</strong> ·
+    更新 {{ import_report.updated }} ·
+    跳过 {{ import_report.skipped }} ·
+    未变化 {{ import_report.unchanged }} ·
+    错误 {{ import_report.error_count }} · 警告 {{ import_report.warning_count }}
+  </p>
+  <p><small>
+    importer <code>{{ import_report.source }}</code> · 导入日志 #{{ import_report.log_id }}
+    {% if import_report.archive_path %}· 清单已存档{% endif %}
+    · 同一张专辑里「曲名 + 专辑 + 艺术家」都相同的文件算同一首歌，重复的会判成未变化
+  </small></p>
+  {% if import_report.errors %}
+    <h5>导入错误（前 {{ import_report.errors|length }} 条）</h5>
+    <ul>{% for item in import_report.errors %}<li><small>记录 {{ item.get('record') }}：{{ item.get('message') }}</small></li>{% endfor %}</ul>
+  {% endif %}
+</article>
+{% endif %}
+
+<article class="plugin-body">
+  <h3 style="margin-top:0">挑音乐</h3>
+  <form method="post" action="{{ page }}">
+    {% if native_picker %}
+    <div class="grid">
+      <button type="submit" name="action" value="pick_folder">选一个文件夹（深度扫描）</button>
+      <button type="submit" name="action" value="pick_files" class="secondary">选多个文件</button>
+    </div>
+    <small>
+      按钮会弹出<strong>系统自己的</strong>选择框（访达），选完这一趟就开始跑：
+      文件夹会被整个深度遍历，只认这些后缀
+      <code>{{ suffixes|join(' ') }}</code>；
+      回收站、<code>.DS_Store</code> 那类垃圾目录和隐藏项会跳过。
+      读到的标签进 <strong>音乐</strong> 分类，入库和上传页走同一条链路。
+    </small>
+    {% else %}
+    <p><small>
+      这台机器上弹不出 macOS 的访达选择框，请在下面的框里填路径（效果和按钮一样）。
+      文件夹会被整个深度遍历，只认这些后缀
+      <code>{{ suffixes|join(' ') }}</code>。
+    </small></p>
+    {% endif %}
+
+    <label>路径（一行一个，也可以直接给某个音乐文件）
+      <textarea name="paths" rows="4"
+                placeholder="~/Music 或 ~/Music/专辑/01 - Song.mp3（一行一个）">{{ (config.get('last_paths') if config else [])|join('\n') }}</textarea>
+    </label>
+    <button type="submit" name="action" value="run">按这些路径扫描并导入</button>
+  </form>
+</article>
+
+{% if last %}
+<article class="plugin-body">
+  <h3 style="margin-top:0">上次扫描</h3>
+  <table role="grid">
+    <tbody>
+      <tr><th style="width:11rem">结果</th><td>{{ last.summary }}</td></tr>
+      <tr><th>目标</th><td>{% for path in last.roots %}<code>{{ path }}</code>{% if not loop.last %}　{% endif %}{% endfor %}</td></tr>
+      <tr><th>清单</th><td><code>{{ last.manifest_path }}</code></td></tr>
+      {% if last.finished_at %}<tr><th>结束于</th><td>{{ last.finished_at }}</td></tr>{% endif %}
+    </tbody>
+  </table>
+</article>
+{% endif %}
+
+<article class="plugin-body">
+  <details>
+    <summary>数据目录 / 说明</summary>
+    <p style="font-size:.82rem">清单写在 <code>{{ data_dir }}</code>（每次覆盖同名文件，只留最近一趟）。</p>
+    <p style="font-size:.82rem">
+      想在命令行里做同一件事：<code>omnishelf scan-music &lt;目录或文件…&gt; --import</code>。
+      iTunes 导出的 XML 走另一个 importer：<code>omnishelf import -i itunes_xml &lt;xml 文件&gt;</code>。
+    </p>
+  </details>
+</article>

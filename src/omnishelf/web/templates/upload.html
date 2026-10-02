@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}上传 · OmniShelf{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>上传数据</h2>
+  <p>
+    选择一个 importer，再选数据文件。原始文件会自动按来源存档，重复导入是安全的。
+  </p>
+</hgroup>
+
+{% if error %}<p class="alert-error"><strong>导入失败：</strong>{{ error }}</p>{% endif %}
+
+<form method="post" action="/upload" enctype="multipart/form-data">
+  <label>
+    导入器（importer）
+    <select name="importer" required>
+      <option value="" disabled {% if not selected %}selected{% endif %}>— 请选择 —</option>
+      {% for option in options %}
+        <option value="{{ option.name }}" {% if selected == option.name %}selected{% endif %}>
+          {{ option.label }}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <label>
+    数据文件
+    <input type="file" name="file" required>
+    <small>单个文件上限 {{ max_mb }} MB；支持该 importer 认识的格式（一般是 JSON / CSV）</small>
+  </label>
+
+  <button type="submit">开始导入</button>
+</form>
+
+<details>
+  <summary>已注册的 importer（{{ options|length }} 个）</summary>
+  <figure>
+    <table role="grid">
+      <thead><tr><th>名称</th><th>类型</th><th>来源标识</th></tr></thead>
+      <tbody>
+        {% for option in options %}
+        <tr>
+          <td><code>{{ option.name }}</code></td>
+          <td>{{ option.kind_label }}</td>
+          <td><code>{{ option.source }}</code></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </figure>
+  <p><small>新增 importer 后刷新页面即可出现在列表中。</small></p>
+</details>
+
+{% if result_error %}
+  <p class="alert-error">{{ result_error }}</p>
+{% endif %}
+
+{% if result %}
+<article>
+  <header>导入结果 · #{{ result.id }} · <code>{{ result.source }}</code></header>
+  <p>
+    共 {{ result.total }} 条 ·
+    <strong>新增 {{ result.inserted }}</strong> ·
+    更新 {{ result.updated }} ·
+    跳过 {{ result.skipped }} ·
+    <span class="{% if result.error_count %}alert-error{% endif %}">错误 {{ result.error_count }}</span> ·
+    警告 {{ result.warning_count }}
+  </p>
+  <p><small>{{ result.started_at }} → {{ result.finished_at }}</small></p>
+  {% if result.archived %}
+    <p><small>原始文件已存档。</small></p>
+  {% endif %}
+
+  {% if result.errors %}
+    <h5>错误（前 {{ result.errors|length }} 条）</h5>
+    <ul>
+      {% for entry in result.errors %}
+        <li><small>记录 {{ entry.get('record') }}：{{ entry.get('message') }}</small></li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  {% if result.warnings %}
+    <h5>警告（前 {{ result.warnings|length }} 条）</h5>
+    <ul>
+      {% for entry in result.warnings %}
+        <li><small>记录 {{ entry.get('record') }}：{{ entry.get('message') }}</small></li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+  {% if result.hidden_count %}
+    <p><small>另有 {{ result.hidden_count }} 条未显示。</small></p>
+  {% endif %}
+
+  <footer>
+    <a href="/" role="button" class="secondary outline">去看列表</a>
+    <a href="/review" role="button" class="secondary outline">去看待复核</a>
+  </footer>
+</article>
+{% endif %}
+{% endblock %}

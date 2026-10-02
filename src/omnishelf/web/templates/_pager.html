@@ -1,0 +1,32 @@
+{# 分页导航：链接用 HTMX 做局部刷新，URL 与浏览器地址栏同步。
+   用法：{% import "_pager.html" as pg %} ... {{ pg.pager(pager) }} #}
+{% macro pager(pager) %}
+<nav class="pager">
+  <ul>
+    <li>
+      {% if pager.prev_url %}
+        <a href="{{ pager.prev_url }}" hx-get="{{ pager.prev_url }}" hx-target="#items-panel" hx-select="#items-panel" hx-swap="outerHTML" hx-push-url="true">← 上一页</a>
+      {% else %}
+        <span>← 上一页</span>
+      {% endif %}
+    </li>
+    {% for link in pager.links %}
+      <li>
+        {% if link.current %}
+          <strong aria-current="page">{{ link.page }}</strong>
+        {% else %}
+          <a href="{{ link.url }}" hx-get="{{ link.url }}" hx-target="#items-panel" hx-select="#items-panel" hx-swap="outerHTML" hx-push-url="true">{{ link.page }}</a>
+        {% endif %}
+      </li>
+    {% endfor %}
+    <li>
+      {% if pager.next_url %}
+        <a href="{{ pager.next_url }}" hx-get="{{ pager.next_url }}" hx-target="#items-panel" hx-select="#items-panel" hx-swap="outerHTML" hx-push-url="true">下一页 →</a>
+      {% else %}
+        <span>下一页 →</span>
+      {% endif %}
+    </li>
+  </ul>
+  <small>第 {{ pager.page }} / {{ pager.pages }} 页 · 共 {{ pager.total }} 条 · 每页 {{ pager.per_page }} 条</small>
+</nav>
+{% endmacro %}

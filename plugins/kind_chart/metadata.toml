@@ -1,0 +1,11 @@
+# 每个插件一个目录，这个文件是「说明书」+ 加载入口声明。
+# 字段都有默认值，最小只需要一个 title。
+# entry 指向的文件里要有 Plugin 子类（见 src/omnishelf/plugins/api.py）。
+[plugin]
+id = "kind_chart"
+title = "分类统计图"
+version = "1.0.0"
+description = "按 kind 统计条目数量，画成条状图（插件模板 / 示例）"
+author = "OmniShelf"
+entry = "plugin.py"       # 相对本目录；可写 "plugin.py:KindChart" 指定类名
+requires = ["query"]      # 声明用到的宿主接口，宿主目前提供：query

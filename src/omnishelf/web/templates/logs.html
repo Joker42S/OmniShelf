@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}日志 · OmniShelf{% endblock %}
+{% block content %}
+<hgroup>
+  <h2>运行日志</h2>
+  <p>
+    插件抓取时说了什么、宿主这边加载/卸载/出错，都按时间排在同一个文件里。
+    {% if logs_dir %}目录 <code>{{ logs_dir }}</code>{% endif %}
+  </p>
+  <p><small>
+    这里看的是<strong>本次运行</strong>：服务重启会把日志清成空，历史入库记录在
+    <a href="/upload">上传</a>页的导入日志里。
+  </small></p>
+</hgroup>
+
+{% if not enabled %}
+  <article><p>当前进程没有开启日志落盘（只在内存里留最近 200 条，插件页能看到）。</p></article>
+{% else %}
+<form method="get" action="/logs" class="log-filters">
+  <label>插件
+    <select name="plugin">
+      <option value="all"{% if plugin == 'all' %} selected{% endif %}>全部</option>
+      {% for item in plugins %}
+        <option value="{{ item.id }}"{% if plugin == item.id %} selected{% endif %}>{{ item.title }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>级别
+    <select name="level">
+      {% for value in levels %}
+        <option value="{{ value }}"{% if level == value %} selected{% endif %}>{{ value }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>尾部行数
+    <select name="limit">
+      {% for value in limits %}
+        <option value="{{ value }}"{% if limit == value %} selected{% endif %}>{{ value }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="log-follow">
+    <input type="hidden" name="follow" value="0">
+    <input type="checkbox" name="follow" value="1"{% if follow %} checked{% endif %}>
+    自动刷新（每 {{ poll_seconds }} 秒）
+  </label>
+  <button type="submit">刷新</button>
+</form>
+
+<article class="log-viewer">
+  <header>
+    <strong>日志</strong>
+    <small>
+      {% if plugin != 'all' %}<code>{{ plugin }}</code>{% else %}全部插件{% endif %}
+      · {{ entries|length }} 行
+    </small>
+  </header>
+  <div id="log-lines"
+       {% if follow %}hx-get="/logs/tail?plugin={{ plugin }}&level={{ level }}&limit={{ limit }}&follow=0"
+       hx-trigger="every {{ poll_seconds }}s" hx-swap="innerHTML"{% endif %}>
+    {% include "_log_lines.html" %}
+  </div>
+</article>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if enabled and follow %}
+<script>
+  // 日志是按时间正排的，尾部才是最新：每次轮询换完内容把滚动条推到底。
+  document.body.addEventListener('htmx:afterSwap', function () {
+    var box = document.querySelector('.log-lines');
+    if (box) box.scrollTop = box.scrollHeight;
+  });
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ status.title }} · 插件 · OmniShelf{% endblock %}
+{% block content %}
+<p><a href="/plugins">← 插件列表</a></p>
+
+<hgroup>
+  <h2>{{ status.title }}</h2>
+  <p>
+    <code>{{ status.id }}</code>
+    {% if status.version %} · v{{ status.version }}{% endif %}
+    {% if status.author %} · {{ status.author }}{% endif %}
+    {% if status.description %}<br>{{ status.description }}{% endif %}
+  </p>
+</hgroup>
+
+{% if error %}
+  <p class="alert-error"><strong>插件没有正常返回：</strong><pre class="plugin-trace">{{ error }}</pre></p>
+{% endif %}
+
+{% if body %}
+  <article class="plugin-body">{{ body|safe }}</article>
+{% elif not error %}
+  <p>这个插件没有实现 <code>render_page()</code>，没有可显示的页面。</p>
+{% endif %}
+
+<form method="post" action="/plugins/reload" class="plugin-actions">
+  <input type="hidden" name="plugin_id" value="{{ status.id }}">
+  <button type="submit" class="secondary outline">重载这个插件</button>
+</form>
+{% endblock %}

@@ -1,0 +1,429 @@
+{
+  "source": "https://copy4000.com/web/person/shujia",
+  "host": "https://copy4000.com",
+  "user": {
+    "user_id": "000000",
+    "username": "sample_user",
+    "nickname": "Sample",
+    "avatar": "https://avatar.copy4000.com/sample.png",
+    "datetime_created": "2026-10-09T23:49:04+08:00"
+  },
+  "updated_at": "2026-10-09T23:49:33+08:00",
+  "last_full_sync": "2026-10-09T23:49:15+08:00",
+  "schema_version": 3,
+  "created_at": "2026-10-09T23:49:04+08:00",
+  "ordering": "-datetime_modifier",
+  "shelf_watermark": 0,
+  "shelf_top_position": 0,
+  "total": 6,
+  "active_total": 6,
+  "items": [
+    {
+      "collect_id": "100001",
+      "name": "星屑のカルテ",
+      "comic_uuid": "00000001-0000-4000-8000-000000000001",
+      "path_word": "sample-path-1",
+      "url": "https://copy4000.com/comics/sample-path-1",
+      "cover": "https://cover.copy4000.com/media/comics/1/00000001-0000-4000-8000-000000000001.jpg",
+      "authors": [
+        "サンプル作者A"
+      ],
+      "themes": [],
+      "status": 2,
+      "status_label": "已完結",
+      "popular": 1000,
+      "last_chapter": {
+        "id": "aaaaaaaa-0000-4000-8000-000000000001",
+        "name": "全1卷",
+        "url": "https://copy4000.com/comics/sample-path-1/chapter/aaaa1"
+      },
+      "last_browse": {
+        "id": "bbbbbbbb-0000-4000-8000-000000000001",
+        "name": "第1話"
+      },
+      "comic_updated_at": "2026-07-03",
+      "folder": null,
+      "free_type": 1,
+      "kind": "comics",
+      "shelf_position": 1,
+      "first_seen": "2026-10-09T23:49:04+08:00",
+      "last_seen": "2026-10-09T23:49:33+08:00",
+      "removed": false,
+      "removed_at": null,
+      "raw": {
+        "uuid": "00000001-0000-4000-8000-000000000001",
+        "name": "星屑のカルテ",
+        "b_folder": null,
+        "folder_id": null,
+        "last_browse": {
+          "comic_uuid": "00000001-0000-4000-8000-000000000001",
+          "path_word": "sample-path-1",
+          "chapter_uuid": "cccccccc-0000-4000-8000-000000000001",
+          "chapter_name": "第1話"
+        },
+        "comic": {
+          "uuid": "00000001-0000-4000-8000-000000000001",
+          "name": "星屑のカルテ",
+          "path_word": "sample-path-1",
+          "author": [
+            {
+              "name": "サンプル作者A",
+              "path_word": "author-0"
+            }
+          ],
+          "theme": [],
+          "females": [],
+          "males": [],
+          "cover": "https://cover.copy4000.com/media/comics/1/00000001-0000-4000-8000-000000000001.jpg",
+          "status": 2,
+          "popular": 1000,
+          "datetime_updated": "2026-07-03",
+          "last_chapter_id": "aaaaaaaa-0000-4000-8000-000000000001",
+          "last_chapter_name": "全1卷",
+          "b_display": true
+        }
+      }
+    },
+    {
+      "collect_id": "100002",
+      "name": "銀河食堂の夜",
+      "comic_uuid": "00000002-0000-4000-8000-000000000002",
+      "path_word": "sample-path-2",
+      "url": "https://copy4000.com/comics/sample-path-2",
+      "cover": "https://cover.copy4000.com/media/comics/2/00000002-0000-4000-8000-000000000002.jpg",
+      "authors": [
+        "サンプル作者B",
+        "サンプル作者C"
+      ],
+      "themes": [],
+      "status": 1,
+      "status_label": "連載中",
+      "popular": 2000,
+      "last_chapter": {
+        "id": "aaaaaaaa-0000-4000-8000-000000000002",
+        "name": "第12話",
+        "url": "https://copy4000.com/comics/sample-path-2/chapter/aaaa2"
+      },
+      "last_browse": {
+        "id": "",
+        "name": ""
+      },
+      "comic_updated_at": "2026-07-30",
+      "folder": null,
+      "free_type": 1,
+      "kind": "comics",
+      "shelf_position": 2,
+      "first_seen": "2026-10-09T23:49:04+08:00",
+      "last_seen": "2026-10-09T23:49:33+08:00",
+      "removed": false,
+      "removed_at": null,
+      "raw": {
+        "uuid": "00000002-0000-4000-8000-000000000002",
+        "name": "銀河食堂の夜",
+        "b_folder": null,
+        "folder_id": null,
+        "last_browse": null,
+        "comic": {
+          "uuid": "00000002-0000-4000-8000-000000000002",
+          "name": "銀河食堂の夜",
+          "path_word": "sample-path-2",
+          "author": [
+            {
+              "name": "サンプル作者B",
+              "path_word": "author-0"
+            },
+            {
+              "name": "サンプル作者C",
+              "path_word": "author-1"
+            }
+          ],
+          "theme": [],
+          "females": [],
+          "males": [],
+          "cover": "https://cover.copy4000.com/media/comics/2/00000002-0000-4000-8000-000000000002.jpg",
+          "status": 1,
+          "popular": 2000,
+          "datetime_updated": "2026-07-30",
+          "last_chapter_id": "aaaaaaaa-0000-4000-8000-000000000002",
+          "last_chapter_name": "第12話",
+          "b_display": true
+        }
+      }
+    },
+    {
+      "collect_id": "100003",
+      "name": "雨の日の図書館",
+      "comic_uuid": "00000003-0000-4000-8000-000000000003",
+      "path_word": "sample-path-3",
+      "url": "https://copy4000.com/comics/sample-path-3",
+      "cover": "https://cover.copy4000.com/media/comics/3/00000003-0000-4000-8000-000000000003.jpg",
+      "authors": [
+        "サンプル作者D"
+      ],
+      "themes": [
+        "戀愛",
+        "日常"
+      ],
+      "status": 0,
+      "status_label": "短篇",
+      "popular": 3000,
+      "last_chapter": {
+        "id": "aaaaaaaa-0000-4000-8000-000000000003",
+        "name": "全3話",
+        "url": "https://copy4000.com/comics/sample-path-3/chapter/aaaa3"
+      },
+      "last_browse": {
+        "id": "bbbbbbbb-0000-4000-8000-000000000003",
+        "name": "第2話"
+      },
+      "comic_updated_at": "2026-05-11",
+      "folder": null,
+      "free_type": 1,
+      "kind": "comics",
+      "shelf_position": 3,
+      "first_seen": "2026-10-09T23:49:04+08:00",
+      "last_seen": "2026-10-09T23:49:33+08:00",
+      "removed": false,
+      "removed_at": null,
+      "raw": {
+        "uuid": "00000003-0000-4000-8000-000000000003",
+        "name": "雨の日の図書館",
+        "b_folder": null,
+        "folder_id": null,
+        "last_browse": {
+          "comic_uuid": "00000003-0000-4000-8000-000000000003",
+          "path_word": "sample-path-3",
+          "chapter_uuid": "cccccccc-0000-4000-8000-000000000003",
+          "chapter_name": "第2話"
+        },
+        "comic": {
+          "uuid": "00000003-0000-4000-8000-000000000003",
+          "name": "雨の日の図書館",
+          "path_word": "sample-path-3",
+          "author": [
+            {
+              "name": "サンプル作者D",
+              "path_word": "author-0"
+            }
+          ],
+          "theme": [
+            "戀愛",
+            "日常"
+          ],
+          "females": [],
+          "males": [],
+          "cover": "https://cover.copy4000.com/media/comics/3/00000003-0000-4000-8000-000000000003.jpg",
+          "status": 0,
+          "popular": 3000,
+          "datetime_updated": "2026-05-11",
+          "last_chapter_id": "aaaaaaaa-0000-4000-8000-000000000003",
+          "last_chapter_name": "全3話",
+          "b_display": true
+        }
+      }
+    },
+    {
+      "collect_id": "100004",
+      "name": "きみと歩く坂道",
+      "comic_uuid": "00000004-0000-4000-8000-000000000004",
+      "path_word": "sample-path-4",
+      "url": "https://copy4000.com/comics/sample-path-4",
+      "cover": "https://cover.copy4000.com/media/comics/4/00000004-0000-4000-8000-000000000004.jpg",
+      "authors": [
+        "A",
+        "B",
+        "C"
+      ],
+      "themes": [],
+      "status": 2,
+      "status_label": "已完結",
+      "popular": 4000,
+      "last_chapter": {
+        "id": "aaaaaaaa-0000-4000-8000-000000000004",
+        "name": "第30話",
+        "url": "https://copy4000.com/comics/sample-path-4/chapter/aaaa4"
+      },
+      "last_browse": {
+        "id": "bbbbbbbb-0000-4000-8000-000000000004",
+        "name": "第30話"
+      },
+      "comic_updated_at": "2026-01-09",
+      "folder": null,
+      "free_type": 1,
+      "kind": "comics",
+      "shelf_position": 4,
+      "first_seen": "2026-10-09T23:49:04+08:00",
+      "last_seen": "2026-10-09T23:49:33+08:00",
+      "removed": false,
+      "removed_at": null,
+      "raw": {
+        "uuid": "00000004-0000-4000-8000-000000000004",
+        "name": "きみと歩く坂道",
+        "b_folder": null,
+        "folder_id": null,
+        "last_browse": {
+          "comic_uuid": "00000004-0000-4000-8000-000000000004",
+          "path_word": "sample-path-4",
+          "chapter_uuid": "cccccccc-0000-4000-8000-000000000004",
+          "chapter_name": "第30話"
+        },
+        "comic": {
+          "uuid": "00000004-0000-4000-8000-000000000004",
+          "name": "きみと歩く坂道",
+          "path_word": "sample-path-4",
+          "author": [
+            {
+              "name": "A",
+              "path_word": "author-0"
+            },
+            {
+              "name": "B",
+              "path_word": "author-1"
+            },
+            {
+              "name": "C",
+              "path_word": "author-2"
+            }
+          ],
+          "theme": [],
+          "females": [],
+          "males": [],
+          "cover": "https://cover.copy4000.com/media/comics/4/00000004-0000-4000-8000-000000000004.jpg",
+          "status": 2,
+          "popular": 4000,
+          "datetime_updated": "2026-01-09",
+          "last_chapter_id": "aaaaaaaa-0000-4000-8000-000000000004",
+          "last_chapter_name": "第30話",
+          "b_display": true
+        }
+      }
+    },
+    {
+      "collect_id": "100005",
+      "name": "夜ふかし倶楽部",
+      "comic_uuid": "00000005-0000-4000-8000-000000000005",
+      "path_word": "sample-path-5",
+      "url": "https://copy4000.com/comics/sample-path-5",
+      "cover": "https://cover.copy4000.com/media/comics/5/00000005-0000-4000-8000-000000000005.jpg",
+      "authors": [
+        "サンプル作者E"
+      ],
+      "themes": [],
+      "status": 1,
+      "status_label": "連載中",
+      "popular": 5000,
+      "last_chapter": {
+        "id": "aaaaaaaa-0000-4000-8000-000000000005",
+        "name": "第5話",
+        "url": "https://copy4000.com/comics/sample-path-5/chapter/aaaa5"
+      },
+      "last_browse": {
+        "id": "bbbbbbbb-0000-4000-8000-000000000005",
+        "name": "第5話"
+      },
+      "comic_updated_at": "2026-09-02",
+      "folder": null,
+      "free_type": 1,
+      "kind": "comics",
+      "shelf_position": 5,
+      "first_seen": "2026-10-09T23:49:04+08:00",
+      "last_seen": "2026-10-09T23:49:33+08:00",
+      "removed": false,
+      "removed_at": null,
+      "raw": {
+        "uuid": "00000005-0000-4000-8000-000000000005",
+        "name": "夜ふかし倶楽部",
+        "b_folder": null,
+        "folder_id": null,
+        "last_browse": {
+          "comic_uuid": "00000005-0000-4000-8000-000000000005",
+          "path_word": "sample-path-5",
+          "chapter_uuid": "cccccccc-0000-4000-8000-000000000005",
+          "chapter_name": "第5話"
+        },
+        "comic": {
+          "uuid": "00000005-0000-4000-8000-000000000005",
+          "name": "夜ふかし倶楽部",
+          "path_word": "sample-path-5",
+          "author": [
+            {
+              "name": "サンプル作者E",
+              "path_word": "author-0"
+            }
+          ],
+          "theme": [],
+          "females": [],
+          "males": [],
+          "cover": "https://cover.copy4000.com/media/comics/5/00000005-0000-4000-8000-000000000005.jpg",
+          "status": 1,
+          "popular": 5000,
+          "datetime_updated": "2026-09-02",
+          "last_chapter_id": "aaaaaaaa-0000-4000-8000-000000000005",
+          "last_chapter_name": "第5話",
+          "b_display": true
+        }
+      }
+    },
+    {
+      "collect_id": "100006",
+      "name": "ひだまりパン屋さん",
+      "comic_uuid": "00000006-0000-4000-8000-000000000006",
+      "path_word": "sample-path-6",
+      "url": "https://copy4000.com/comics/sample-path-6",
+      "cover": "https://cover.copy4000.com/media/comics/6/00000006-0000-4000-8000-000000000006.jpg",
+      "authors": [
+        "サンプル作者F"
+      ],
+      "themes": [],
+      "status": 2,
+      "status_label": "已完結",
+      "popular": 6000,
+      "last_chapter": {
+        "id": "aaaaaaaa-0000-4000-8000-000000000006",
+        "name": "",
+        "url": "https://copy4000.com/comics/sample-path-6/chapter/aaaa6"
+      },
+      "last_browse": {
+        "id": "",
+        "name": ""
+      },
+      "comic_updated_at": "2026-03-21",
+      "folder": null,
+      "free_type": 1,
+      "kind": "comics",
+      "shelf_position": 6,
+      "first_seen": "2026-10-09T23:49:04+08:00",
+      "last_seen": "2026-10-09T23:49:33+08:00",
+      "removed": false,
+      "removed_at": null,
+      "raw": {
+        "uuid": "00000006-0000-4000-8000-000000000006",
+        "name": "ひだまりパン屋さん",
+        "b_folder": null,
+        "folder_id": null,
+        "last_browse": null,
+        "comic": {
+          "uuid": "00000006-0000-4000-8000-000000000006",
+          "name": "ひだまりパン屋さん",
+          "path_word": "sample-path-6",
+          "author": [
+            {
+              "name": "サンプル作者F",
+              "path_word": "author-0"
+            }
+          ],
+          "theme": [],
+          "females": [],
+          "males": [],
+          "cover": "https://cover.copy4000.com/media/comics/6/00000006-0000-4000-8000-000000000006.jpg",
+          "status": 2,
+          "popular": 6000,
+          "datetime_updated": "2026-03-21",
+          "last_chapter_id": "aaaaaaaa-0000-4000-8000-000000000006",
+          "last_chapter_name": "",
+          "b_display": true
+        }
+      }
+    }
+  ]
+}

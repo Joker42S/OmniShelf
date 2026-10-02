@@ -1,0 +1,392 @@
+{# asmr.one 收藏抓取（公开播放列表 / 私人收藏）：抓取表单 + 上次结果 + 已有快照。
+   宿主会把这个片段塞进站点布局里，所以不重复写导航和样式。 #}
+
+{% if error %}
+  <article class="plugin-body" style="border-left:4px solid #dc2626;padding:.6rem .9rem">
+    <strong>没能执行：</strong>{{ error }}
+  </article>
+{% endif %}
+
+{% if notice %}
+  <article class="plugin-body" style="border-left:4px solid #16a34a;padding:.6rem .9rem">
+    {{ notice }}
+  </article>
+{% endif %}
+
+{% if not importer_available %}
+  <article class="plugin-body" style="border-left:4px solid #d97706;padding:.6rem .9rem">
+    <strong>注意：</strong>宿主当前没有注册 importer <code>{{ importer }}</code>，
+    「抓取并导入」会失败（抓取和落盘仍然可用，之后到上传页手动导入）。
+  </article>
+{% endif %}
+
+{% if job %}
+{# 抓取进度条。运行中时这一整块每 poll_seconds 秒被它自己替换一次
+   （HTMX 轮询页面、只取 #ap-fetch-status），抓完由服务端把状态换成「结束/失败」，
+   轮询属性随之消失，块里换上了正式报告。 #}
+<section id="ap-fetch-status"{% if job.state == 'running' %}
+         hx-get="/plugins/asmr_playlist"
+         hx-trigger="every {{ poll_seconds }}s"
+         hx-select="#ap-fetch-status"
+         hx-swap="outerHTML"{% endif %}>
+  {% set pages_max = job.expected_pages or job.total_pages or 0 %}
+  <article class="plugin-body">
+    <h3 style="margin-top:0">
+      {% if job.state == 'running' %}正在抓取…
+      {% elif job.state == 'error' %}抓取失败
+      {% else %}抓取结束{% endif %}
+      <small style="font-weight:400">· {{ job.label }}</small>
+    </h3>
+
+    {% if job.state != 'running' %}
+      <progress value="1" max="1"></progress>
+    {% elif pages_max %}
+      <progress value="{{ [job.pages_fetched, pages_max]|min }}" max="{{ pages_max }}"></progress>
+    {% else %}
+      <progress></progress>
+    {% endif %}
+
+    <p style="font-size:.88rem">
+      已抓 <strong>{{ job.pages_fetched }}</strong> 页{% if pages_max %} / 计划 {{ pages_max }} 页{% endif %}
+      · 本次 <strong>{{ job.fetched_count }}</strong> 条（新增 {{ job.new_count }}）
+      · 快照累计 {{ job.item_count }} 条
+      {% if job.reported_count %}· 接口报 {{ job.reported_count }} 条{% endif %}
+      · 已用 {{ job.elapsed }} 秒
+    </p>
+    <p><small>{{ job.note }}</small></p>
+
+    {% if job.state == 'running' %}
+      {% if job.notes %}
+        <details open>
+          <summary>已抓的页（{{ job.notes|length }} 行）</summary>
+          <pre style="max-height:12rem;overflow:auto;font-size:.78rem">{{ job.notes|join('\n') }}</pre>
+        </details>
+      {% endif %}
+      <p><small>抓取在后台跑，这一栏每 {{ poll_seconds }} 秒自己刷新一次。
+        切到别的页面也没关系，回来还能看到进度。</small></p>
+    {% elif job.state == 'error' %}
+      <p><strong style="color:#dc2626">{{ job.error }}</strong></p>
+      <p><small>已经抓到的部分不会丢（快照按页累积），稍后可以接着用增量抓取续抓。</small></p>
+    {% endif %}
+  </article>
+
+{% if import_report %}
+<article class="plugin-body" style="border-left:4px solid {% if import_report.error %}#dc2626{% else %}#16a34a{% endif %};padding:.6rem .9rem">
+  <header><strong>导入到 OmniShelf</strong> <small>importer <code>{{ import_report.importer }}</code></small></header>
+  {% if import_report.error %}
+    <p><strong>导入失败：</strong>{{ import_report.error }}</p>
+    <p><small>抓取本身没白跑：快照已经在 <code>{{ import_report.path }}</code>，
+      可以稍后到上传页选 importer <code>{{ importer }}</code> 手动导入。</small></p>
+  {% else %}
+    <p>
+      共 {{ import_report.total }} 条 ·
+      <strong>新增 {{ import_report.inserted }}</strong> ·
+      更新 {{ import_report.updated }} ·
+      跳过 {{ import_report.skipped }} ·
+      未变化 {{ import_report.unchanged }} ·
+      错误 {{ import_report.error_count }} · 警告 {{ import_report.warning_count }}
+    </p>
+    <p><small>
+      导入日志 #{{ import_report.log_id }}
+      {% if import_report.archive_path %}· 原始文件已存档{% endif %}
+      {% if asmr_total is not none %}· 库里现在有 <strong>{{ asmr_total }}</strong> 条 asmr{% endif %}
+    </small></p>
+    {% if import_report.errors %}
+      <h5>导入错误（前 {{ import_report.errors|length }} 条）</h5>
+      <ul>{% for item in import_report.errors %}<li><small>记录 {{ item.get('record') }}：{{ item.get('message') }}</small></li>{% endfor %}</ul>
+    {% endif %}
+    {% if import_report.warnings %}
+      <details>
+        <summary>导入警告（{{ import_report.warnings|length }} 条）</summary>
+        <ul>{% for item in import_report.warnings %}<li><small>记录 {{ item.get('record') }}：{{ item.get('message') }}</small></li>{% endfor %}</ul>
+      </details>
+    {% endif %}
+  {% endif %}
+</article>
+{% endif %}
+
+{% if report %}
+  {% set target_name = '私人收藏' if report.target == 'favorites' else '播放列表' %}
+  <article class="plugin-body">
+    <h3 style="margin-top:0">
+      抓取完成：{{ target_name }} <code>{{ report.playlist_id }}</code>
+      <small>（{{ report.mode }} · {{ report.pages_requested[0] }}-{{ report.pages_requested[1] or '末页' }}）</small>
+    </h3>
+    <table role="grid">
+      <tbody>
+        <tr><th style="width:11rem">本次抓到</th>
+            <td><strong>{{ report.fetched_count }}</strong> 条（其中新增 {{ report.new_count }} 条）</td></tr>
+        <tr><th>快照累计</th>
+            <td><strong>{{ report.item_count }}</strong> 条
+              <small>（抓之前 {{ report.previous_count }} 条；增量抓取是累积的，反复抓会不断合并/覆盖）</small></td></tr>
+        <tr><th>接口报告总数</th>
+            <td>{{ report.reported_count if report.reported_count is not none else '—' }} 个作品
+              {% if report.total_pages %}· 每页 {{ report.page_size }} · 共 {{ report.total_pages }} 页{% endif %}</td></tr>
+        <tr><th>实际抓取页数</th>
+            <td>{{ report.pages_fetched }} 页{% if report.total_pages %} / 共 {{ report.total_pages }} 页{% endif %}</td></tr>
+        <tr><th>停止原因</th><td>{{ report.stop_reason or '—' }}</td></tr>
+        {% if report.auth_note %}
+          <tr><th>认证</th><td>{{ report.auth_note }}</td></tr>
+        {% endif %}
+        {% if report.target == 'favorites' %}
+          <tr><th>本人评分</th>
+              <td>{{ report.rated_count }} 条带你打过的分<small>（导入成条目的评分；没打分的不动评分）</small></td></tr>
+        {% endif %}
+        <tr><th>耗时</th><td>{{ report.elapsed }} 秒</td></tr>
+        <tr><th>代理</th>
+            <td>{{ report.proxy or '直连' }}
+              {% if report.proxy_fallback %}<br><small style="color:#d97706">代理不通，本次已自动回退直连。</small>{% endif %}</td></tr>
+        <tr><th>快照文件</th>
+            <td><code>{{ report.saved }}</code>（{{ report.saved_mb }} MB）
+              <small>· 元信息 <code>{{ report.meta_saved }}</code></small></td></tr>
+      </tbody>
+    </table>
+
+    {% if report.next_page %}
+      <p style="border-left:4px solid #d97706;padding:.4rem .8rem">
+        这次没抓完，停在第 {{ report.next_page }} 页（请求失败或返回不对）：
+        <strong>把「页码范围」填 <code>{{ report.next_page }}-</code> 再点一次</strong>
+        就从那页接着抓，已经抓到的部分不会丢。
+      </p>
+    {% elif report.complete %}
+      <p><small>快照已经覆盖到最后一页，增量抓取以后只翻最前面几页就能停。</small></p>
+    {% endif %}
+
+    <p><small>
+      快照就是 importer <code>{{ importer }}</code> 认的格式，可以直接到
+      <a href="/upload">上传</a> 页手动导入。
+      列表里被移除的作品<strong>不会</strong>从库里删掉（导入接口只新增/更新）。
+    </small></p>
+
+    {% if report.notes %}
+      <details open>
+        <summary>抓取明细（{{ report.notes|length }} 行）</summary>
+        <pre style="max-height:16rem;overflow:auto;font-size:.78rem">{{ report.notes|join('\n') }}</pre>
+      </details>
+      <p><small>这份明细只在内存里，关掉页面就没了；每一页都同时记进了宿主的运行日志，
+        重启也查得到：<a href="/logs?plugin=asmr_playlist&follow=0">看日志</a>。</small></p>
+    {% endif %}
+    {% if json_text %}
+      <details>
+        <summary>快照内容预览（可以直接全选复制）</summary>
+        <textarea readonly rows="12" style="width:100%;font-size:.72rem">{{ json_text }}</textarea>
+      </details>
+    {% endif %}
+  </article>
+{% endif %}
+</section>
+{% endif %}
+
+<article class="plugin-body">
+  <h3 style="margin-top:0">ASMR.ONE 收藏抓取
+    <small style="font-weight:400">· 插件 id <code>asmr_playlist</code></small></h3>
+  <p style="font-size:.86rem">
+    把 asmr.one 的<strong>公开播放列表</strong>或<strong>私人收藏</strong>抓成可直接导入的 JSON，再用内置 importer
+    <code>{{ importer }}</code> 入库（和上传页/CLI 同一条链路：来源判重、写 import_logs、原始文件存档）。
+    接口一次给一页<strong>作品完整信息</strong>（社团/声优/标签/时长/语言版本/评分…），所以不用逐条补详情。
+  </p>
+
+  <form method="post" action="/plugins/asmr_playlist">
+    <input type="hidden" name="form" value="fetch">
+    <div class="grid">
+      <label>接口地址（base URL）
+        <input type="text" name="base_url" value="{{ form.base_url }}" placeholder="{{ default_base_url }}">
+        <small>填接口根地址就行，后面的部分按抓取目标自动补全。也可以整条写成带 <code>id=…</code> 的地址。</small>
+      </label>
+      <label>播放列表 ID
+        <input type="text" name="playlist_id" value="{{ form.playlist_id }}"
+               placeholder="播放列表 URL 中的 UUID">
+        <small>asmr.one 播放列表页 URL 里的那串 UUID（抓私人收藏时用不到）。</small>
+      </label>
+      <label>本地代理
+        <input type="text" name="proxy" value="{{ form.proxy }}" placeholder="http://127.0.0.1:10809">
+        <small>留空 = 直连；代理连不上会自动回退直连一次。</small>
+      </label>
+    </div>
+
+    <div class="ap-private">
+      <label class="ap-switch">
+        <input type="checkbox" name="favorites" value="on" {% if form.favorites %}checked{% endif %}>
+        抓取私人收藏（要认证：抓你自己账号下的收藏，<strong>含你打过的分</strong>）
+      </label>
+      <input type="hidden" name="has_favorites" value="1">
+      <div class="grid ap-auth">
+        <label>用户名
+          <input type="text" name="username" value="{{ form.username }}" autocomplete="username"
+                 placeholder="asmr.one 账号">
+          <small>没有令牌时用它登录换令牌。</small>
+        </label>
+        <label>密码
+          <input type="password" name="password" autocomplete="current-password"
+                 placeholder="只在本次抓取里用，不会存下来">
+        </label>
+        <label>authorization
+          <input type="text" name="authorization" value="{{ form.authorization }}"
+                 placeholder="Bearer 令牌">
+          <small>优先用这个；令牌会存进本地配置，密码不会。<br>
+            怎么拿：浏览器开发者工具（F12）→ Network → 请求头里的
+            <code>Authorization: Bearer &lt;token&gt;</code>，复制 token 粘进来。</small>
+        </label>
+      </div>
+    </div>
+
+    <div class="grid">
+      <label>页码范围
+        <input type="text" name="pages" value="{{ form.pages }}" placeholder="0 / 1 / 1-5 / 12-">
+        <small><code>0</code> 全抓（默认，一路翻到末页），<code>1</code> 只抓第一页，
+          <code>1-5</code> 抓 1~5 页，<code>12-</code> 从第 12 页抓到底（续抓就用这个）。
+          {% if resume_hint %}上次停在第 {{ resume_hint }} 页，填 <code>{{ resume_hint }}-</code> 接着抓。{% endif %}</small>
+      </label>
+      <label>每页条数
+        <input type="number" name="page_size" min="1" max="100" value="{{ form.page_size }}">
+        <small>接口上限 100（实测超过会 400）。越大请求越少、越快。</small>
+      </label>
+      <label>请求间隔（秒）
+        <input type="number" name="delay" min="0" max="10" step="0.1" value="{{ form.delay }}">
+        <small>默认 0.5；asmr.one 是公开 JSON 接口，不必像豆瓣那样等很久。</small>
+      </label>
+    </div>
+
+    <label>
+      <input type="checkbox" name="incremental" {% if form.incremental %}checked{% endif %}>
+      增量抓取（从第 1 页往后翻，遇到整页都已在快照里就停；两种列表都是新的在最前面）
+    </label>
+
+    <div class="ap-actions">
+      <button type="submit" name="action" value="fetch">开始抓取</button>
+      <button type="submit" name="action" value="fetch_import" class="secondary">抓取并导入</button>
+    </div>
+    <small>
+      <strong>增量</strong>适合日常更新（通常只翻 1~2 页）；<strong>全量</strong> =
+      取消上面的勾 + 页码 <code>0</code>；<strong>指定范围</strong> = 填页码（可配合增量）。
+      <br>
+      抓取在后台跑，上方的进度条会实时显示翻到第几页，这期间可以去别的页面。
+      每页约 {{ form.delay }} 秒 + 请求时间：每页 100 条时，几千条的列表要翻几十页。
+    </small>
+  </form>
+
+  <details>
+    <summary>保存默认值（接口地址 / 抓取目标 / 认证 / 代理 会自动记住）</summary>
+    <form method="post" action="/plugins/asmr_playlist">
+      <input type="hidden" name="action" value="save">
+      <input type="hidden" name="form" value="save">
+      <div class="grid">
+        <label>默认接口地址 <input type="text" name="base_url" value="{{ config.base_url }}"></label>
+        <label>默认播放列表 ID <input type="text" name="playlist_id" value="{{ config.playlist_id }}"></label>
+        <label>默认代理 <input type="text" name="proxy" value="{{ config.proxy }}" placeholder="留空 = 直连"></label>
+      </div>
+      <div class="ap-private">
+        <label class="ap-switch">
+          <input type="checkbox" name="favorites" value="on" {% if config.target == 'favorites' %}checked{% endif %}>
+          默认抓私人收藏
+        </label>
+        <input type="hidden" name="has_favorites" value="1">
+        <div class="grid ap-auth">
+          <label>默认账号 <input type="text" name="username" value="{{ config.username }}"></label>
+          <label>默认 authorization <input type="text" name="authorization" value="{{ config.authorization }}"></label>
+        </div>
+      </div>
+      <p><small>密码<strong>不会</strong>存进配置：勾了「默认抓私人收藏」以后，每次抓取时现填密码，
+        或者粘一个长期有效的 authorization。</small></p>
+      <div class="grid">
+        <label>默认页码 <input type="text" name="pages" value="{{ config.pages }}"></label>
+        <label>默认每页条数 <input type="number" name="page_size" min="1" max="100" value="{{ config.page_size }}"></label>
+      </div>
+      <div class="grid">
+        <label>默认间隔（秒） <input type="number" name="delay" min="0" max="10" step="0.1" value="{{ config.delay }}"></label>
+        <label>请求超时（秒） <input type="number" name="timeout" min="5" max="120" value="{{ config.timeout }}"></label>
+      </div>
+      <label>
+        <input type="checkbox" name="incremental" {% if config.incremental %}checked{% endif %}>
+        默认增量抓取
+      </label>
+      <label>
+        <input type="checkbox" name="keep_raw" {% if config.keep_raw %}checked{% endif %}>
+        保留接口返回的全部字段（<code>keep_raw</code>；不勾就丢掉入库用不到的那几个站内统计字段，
+        快照能小三成）
+      </label>
+      <button type="submit">保存默认值</button>
+    </form>
+  </details>
+</article>
+
+<article class="plugin-body">
+  <h3 style="margin-top:0">已有快照</h3>
+  <p style="font-size:.82rem">
+    数据目录：<code>{{ data_dir }}</code>。一个抓取目标一个文件，反复抓就是不断累积/覆盖。
+    {% if asmr_total is not none %}库里现在有 <strong>{{ asmr_total }}</strong> 条 asmr。{% endif %}
+  </p>
+  {% if snapshots %}
+    <table role="grid">
+      <thead>
+        <tr><th>抓的是什么</th><th>条数</th><th>接口报告</th><th>覆盖</th><th>停在第几页</th><th>抓取时间</th><th>文件</th></tr>
+      </thead>
+      <tbody>
+        {% for row in snapshots %}
+          <tr>
+            <td>
+              {% if row.target == 'favorites' %}<strong>私人收藏</strong>{% else %}<code>{{ row.playlist_id or '(未记录)' }}</code>{% endif %}
+              <br><small>{{ row.mode }}</small>
+            </td>
+            <td>{{ row.item_count }}</td>
+            <td>{{ row.reported_count if row.reported_count is not none else '—' }}</td>
+            <td>
+              {% if row.complete %}
+                <span style="color:#16a34a">已抓全</span>
+              {% else %}
+                本次到第 {{ row.highest_page or 0 }} 页{% if row.total_pages %} / 共 {{ row.total_pages }}{% endif %}
+              {% endif %}
+            </td>
+            <td>{% if row.next_page %}第 {{ row.next_page }} 页{% else %}—{% endif %}</td>
+            <td><small>{{ row.fetched_at }}</small></td>
+            <td><code>{{ row.file }}</code><br><small>{{ row.size_mb }} MB</small></td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p><small>还没有快照。填好上面的表单点「开始抓取」就会生成。</small></p>
+  {% endif %}
+
+  <details>
+    <summary>命令行也能干同样的事</summary>
+    <pre style="font-size:.78rem">omnishelf plugin asmr_playlist fetch_import \
+  --playlist-id &lt;你的播放列表 UUID&gt; \
+  --proxy http://127.0.0.1:10809 \
+  --pages 0                 # 全量；--no-incremental 表示整段重抓
+  # 增量（默认）：页码 0 + 增量 = 抓到底，遇到整页已知就停
+  # 只更新最新两页：--pages 1-2
+  # 只抓不导入：--dry-run
+  # 私人收藏：--target favorites --authorization &lt;Bearer 令牌&gt;</pre>
+  </details>
+</article>
+
+<style>
+  .ap-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: center;
+    margin-bottom: 0.4rem;
+  }
+
+  .ap-actions button {
+    margin: 0;
+    width: auto;
+  }
+
+  .ap-switch {
+    font-weight: 600;
+  }
+
+  /* 勾了「抓取私人收藏」才展开认证那几栏；浏览器不认 :has() 就一直摊开 */
+  @supports selector(:has(*)) {
+    .ap-auth {
+      display: none;
+    }
+
+    .ap-private:has(.ap-switch input:checked) .ap-auth {
+      display: grid;
+    }
+  }
+</style>

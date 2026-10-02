@@ -1,0 +1,8 @@
+{% if entries %}
+<pre class="plugin-trace log-lines">{% for line in entries %}<span class="log-{{ line.kind }}">{{ line.text }}</span>
+{% endfor %}</pre>
+{% elif plugin != 'all' %}
+<p class="empty">这个插件还没有日志。<small>插件只有真的做事（加载、抓取、出错）才会写字进来。</small></p>
+{% else %}
+<p class="empty">还没有日志。</p>
+{% endif %}
