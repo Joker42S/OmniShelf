@@ -2,7 +2,7 @@
 
 # OmniShelf
 
-**一个本地的个人收藏夹中枢管理系统，将不同来源的作品统一归档，方便查询与备份。**
+**一个本地的个人收藏管理系统，将不同来源和类型的作品统一归档，方便查询与备份。**
 
 ![版本](https://img.shields.io/badge/version-0.1.0--alpha-blue)
 ![Python](https://img.shields.io/badge/python-3.11%2B-green)
