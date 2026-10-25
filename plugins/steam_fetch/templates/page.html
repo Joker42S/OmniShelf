@@ -1,0 +1,165 @@
+{# Steam 收藏抓取插件页。宿主把这段塞进站点布局；HTMX 由布局提供。 #}
+<h2>{{ plugin.title }}</h2>
+<p><small>
+  把你的 Steam <b>游戏库（已拥有）</b>和<b>愿望单</b>抓下来，一键导入「游戏」书架；
+  也可以只抓取存成快照，之后到上传页手动导入。
+</small></p>
+
+{% if job %}
+{# 进度条：运行中时这一整块每 poll_seconds 秒被它自己替换一次 #}
+<section id="sf-fetch-status"{% if job.state == 'running' %}
+         hx-get="/plugins/{{ plugin.id }}"
+         hx-trigger="every {{ poll_seconds }}s"
+         hx-select="#sf-fetch-status"
+         hx-swap="outerHTML"{% endif %}>
+  <h3>
+    {% if job.state == 'running' %}抓取中…
+    {% elif job.state == 'error' %}<span style="color:#dc2626">抓取失败</span>
+    {% else %}抓取结束{% endif %}
+    <small style="font-weight:400">· {{ job.label }} · {{ job.elapsed }} 秒</small>
+  </h3>
+  <p><small>{{ job.note }}</small></p>
+
+  {% if job.report %}
+    <ul>
+      {% for row in job.report.lists %}
+        <li>{{ row.list_cn }}：
+          {% if row.file %}{{ row.count }} 条 → <code>{{ row.file.split("/")|last }}</code>
+            （importer <code>{{ row.importer }}</code>）
+          {% else %}<em>{{ row.unavailable }}</em>（未写快照）{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+    {% if job.report.persona %}<p><small>档案：{{ job.report.persona }}（{{ job.report.sid }}）</small></p>{% endif %}
+    {% if job.report.network %}<p><small>网络：{{ job.report.network }}</small></p>{% endif %}
+  {% endif %}
+
+  {% if job.import_reports %}
+    <table role="grid">
+      <thead><tr><th>列表</th><th>共</th><th>新增</th><th>更新</th><th>未变化</th><th>错误</th></tr></thead>
+      <tbody>
+      {% for item in job.import_reports %}
+        <tr>
+          {% if item.error %}
+            <td colspan="5" style="color:#dc2626">{{ item.list }} 导入失败</td><td>{{ item.error }}</td>
+          {% else %}
+            <td>{{ item.list }}</td><td>{{ item.total }}</td><td>{{ item.inserted }}</td>
+            <td>{{ item.updated }}</td><td>{{ item.unchanged }}</td><td>{{ item.error_count }}</td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  {% if job.state == 'running' and job.notes %}
+    <details open>
+      <summary>进度明细（{{ job.notes|length }} 行）</summary>
+      <pre style="max-height:12rem;overflow:auto;font-size:.78rem">{{ job.notes|join('\n') }}</pre>
+    </details>
+    <p><small>抓取在后台跑，这一栏每 {{ poll_seconds }} 秒自己刷新一次。</small></p>
+  {% endif %}
+  {% if job.state == 'error' %}
+    <p><strong style="color:#dc2626">{{ job.error }}</strong></p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if error %}<p><strong style="color:#dc2626">{{ error }}</strong></p>{% endif %}
+
+<form method="post" action="/plugins/{{ plugin.id }}">
+  <input type="hidden" name="form" value="save">
+
+  <div class="grid">
+    <label>Steam Web API Key（{{ auth_display }}）
+      <input type="password" name="api_key" autocomplete="off"
+             placeholder="{{ '留空 = 沿用已存的' if has_key else 'steamcommunity.com/dev/apikey 申请的那串' }}">
+    </label>
+    <label aria-label="清除">
+      <input type="checkbox" name="clear_key"> 清除已存的 Key
+    </label>
+  </div>
+
+  <div class="grid">
+    <label>SteamID64（个人主页那串 17 位数字，优先用它）
+      <input type="text" name="steamid64" value="{{ config.steamid64 }}" placeholder="76561197960…">
+    </label>
+    <label>vanity（自定义 URL 名，SteamID64 留空时用它解析）
+      <input type="text" name="vanity" value="{{ config.vanity }}" placeholder="如 gabelogannewell">
+    </label>
+  </div>
+
+  <div class="grid">
+    <label>商店区域（决定愿望单价格用哪个区的报价）
+      <input type="text" name="cc" value="{{ config.cc }}" maxlength="2" placeholder="US">
+    </label>
+    <label>抓哪些
+      <select name="lists">
+        <option value="all">游戏库 + 愿望单</option>
+        <option value="owned">只有游戏库</option>
+        <option value="wishlist">只有愿望单</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="grid">
+    <label>代理（直连不通时填本地代理地址）
+      <input type="text" name="proxy" value="{{ config.proxy }}"
+             placeholder="http://127.0.0.1:10809">
+      <small>填了就全程只走它（api 与 store 两个域名都走）；留空 = 不指定，
+        按系统/环境变量里的代理设置。只写 <code>IP:端口</code> 按 HTTP 代理对待；
+        SOCKS 要写全，如 <code>socks5://127.0.0.1:10808</code>。</small>
+    </label>
+    <label>
+      <input type="checkbox" name="force_refresh">
+      重新拉取商店信息（价格/发行日期没更新时用）
+    </label>
+  </div>
+
+  <p><small>
+    两份列表都会补全商店信息：名称、价格（按所选区域）、封面链接、发行日期、开发者、类型标签、简介；
+    游戏库另有游玩时长（愿望单没有）。封面只存链接，不下载图片。
+  </small></p>
+
+  <div class="sf-actions">
+    <button type="submit" name="action" value="save" class="secondary">保存默认值</button>
+    <button type="submit" name="action" value="fetch">只抓取（不入库）</button>
+    <button type="submit" name="action" value="fetch_import">抓取并导入</button>
+  </div>
+</form>
+
+<h3>已抓快照（{{ data_dir }}）</h3>
+{% if snapshots %}
+<table role="grid">
+  <thead><tr><th>文件</th><th>列表</th><th>条数</th><th>抓取时间</th><th>导入用 importer</th><th>大小</th></tr></thead>
+  <tbody>
+  {% for row in snapshots %}
+    <tr>
+      <td>{{ row.file }}</td><td>{{ row.list_cn }}</td><td>{{ row.count }}</td>
+      <td>{{ row.fetched_at }}</td><td><code>{{ row.importer }}</code></td><td>{{ row.size_kb }} KB</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <p><small>还没有快照。点「只抓取」或「抓取并导入」试试。</small></p>
+{% endif %}
+
+<p><small>命令行等价：
+  <code>omnishelf plugin steam_fetch sync --dry-run</code> /
+  <code>omnishelf plugin steam_fetch sync --lists wishlist</code> /
+  <code>omnishelf plugin steam_fetch sync --proxy http://127.0.0.1:10809</code></small></p>
+
+<style>
+  .sf-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: center;
+  }
+  .sf-actions button {
+    margin: 0;
+    width: auto;
+    flex: 1 1 auto;
+  }
+</style>

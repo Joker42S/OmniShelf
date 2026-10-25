@@ -1,0 +1,11 @@
+# 每个插件一个目录，这个文件是「说明书」+ 加载入口声明。
+[plugin]
+id = "steam_fetch"
+title = "Steam 收藏抓取"
+version = "1.0.0"
+description = "抓取 Steam 游戏库/愿望单（名称/时长/价格/封面链接），一键入库游戏书架"
+author = "OmniShelf"
+entry = "plugin.py"
+# query：读配置/统计；import：抓完直接走宿主导入链路入库。
+# 抓取用的是随插件分发的 steam_client 工具包（纯标准库），不走宿主 net 接口。
+requires = ["query", "import"]

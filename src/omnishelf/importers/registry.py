@@ -64,4 +64,5 @@ def load_builtin_importers() -> None:
         json_file,
         music,
         picamanga,
+        steam,
     )
