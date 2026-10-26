@@ -18,8 +18,9 @@
    走的是和上传页/CLI 完全一样的链路：来源级判重、写 ``import_logs``、原始文件存档。
    判重靠 ``comic_uuid`` → ``external_ids.copymanga``，所以重复导入同一批只会「未变化」。
 
-抓取本身**不在这个文件里实现**：插件目录里带了一份 ``copymanga/`` 工具包（原样复制，一行没改，
-见 ``VENDOR.md``），本文件只做「表单 → 配置 → 调用它 → 把结果变成页面/导入」这一层。
+抓取本身**不在这个文件里实现**：插件目录里带了一份 ``copymanga/`` 工具包（上游 v2.0.0 原样复制，
+只打过一处**记了档的本地补丁**——代理出口，见 ``VENDOR.md``），本文件只做「表单 → 配置 → 调用它 →
+把结果变成页面/导入」这一层。
 之所以要往 ``sys.path`` 里补插件目录：宿主的插件加载器是 exec 单个入口文件，
 包与包之间的相对导入得先能找到根。
 
@@ -33,6 +34,8 @@
 ``page_size``      每页条数（1~500，默认 100，越大请求越少）
 ``delay``          翻页之间的间隔秒数（默认 0.3）
 ``timeout``        单次请求超时秒数（默认 40）
+``proxy``          代理服务器，如 ``http://127.0.0.1:10809``；留空 = 不指定
+                   （那时 urllib 仍认系统的 ``HTTPS_PROXY``，没设就是直连）
 ``include_raw``    默认 false：状态库里不保留接口原始返回（体积能小一大半）
 =================  ==========================================================
 
@@ -55,7 +58,12 @@
   没翻到的老条目不动；要整库刷新老字段就抓一次全量；
 * token 会过期：失效时填了用户名密码就自动重新登录一次，只留 token 的话换一个再抓；
 * 只抓漫画：书架上的「動畫」在本库里没有对应的类型和 importer，抓下来也无处可放，
-  所以工具支持它、插件却不提供这个选项。
+  所以工具支持它、插件却不提供这个选项；
+* 这个域名在不少网络环境里直连就是超时，所以页面上有一栏「代理」：填了本地代理地址就这次
+  同步全程只走它（**包括登录那一次**，因为登录和翻页走的是同一个 HTTP 出口），留空则不在
+  代码里指定（系统设了 ``HTTPS_PROXY`` 之类的环境变量时 urllib 仍会用，没设就是直连）。
+  刻意**没有**「代理不通自动退回直连」那种兜底——那样报错就看不出走的哪条路了。
+  代理地址会和其他连接项一起存进本地配置；它若带 ``user:pass@`` 口令，口令不进日志和报错。
 """
 
 from __future__ import annotations
@@ -74,8 +82,8 @@ from typing import Any, Mapping
 
 from omnishelf.plugins.api import Plugin, cmd
 
-# 抓取逻辑在随插件分发的 copymanga 包里（原样复制，未改动）：入口文件是被 exec 的，
-# 所以先把插件目录补进 sys.path，再 import 那个包。
+# 抓取逻辑在随插件分发的 copymanga 包里（上游 v2.0.0 + VENDOR.md 里记档的代理补丁）。
+# 入口文件是被 exec 的，所以先把插件目录补进 sys.path，再 import 那个包。
 _PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 if _PLUGIN_DIR not in sys.path:
     sys.path.insert(0, _PLUGIN_DIR)
@@ -107,6 +115,10 @@ MODE_LABEL = {"incremental": "增量", "full": "全量"}
 FETCH_KIND_LABEL = "漫画"
 AUTH_REQUIRED = "抓自己的书架要先认证：粘一个 token，或者填用户名和密码"
 BAD_HOST = "站点地址要写成 https://copy4000.com 这样（不能为空）"
+#: 表单里代理写坏了的提示（和 picamanga / steam_fetch 用同一句话，用户在这几个插件间来回跳不用重新学）
+BAD_PROXY = "代理地址要写成 http://127.0.0.1:10809 这样（留空 = 不指定代理）"
+#: urllib 的 ProxyHandler 认的代理协议（SOCKS 要写全协议头，见 normalize_proxy）
+PROXY_SCHEMES = ("http", "https", "socks4", "socks4a", "socks5", "socks5h")
 
 DEFAULTS: dict[str, Any] = {
     "host": DEFAULT_HOST,
@@ -116,6 +128,7 @@ DEFAULTS: dict[str, Any] = {
     "page_size": 100,
     "delay": 0.3,
     "timeout": 40,
+    "proxy": "",
     "include_raw": False,
 }
 
@@ -135,6 +148,43 @@ def normalize_host(value: Any) -> str:
     if parts.scheme not in ("http", "https") or not parts.netloc:
         return ""
     return f"{parts.scheme}://{parts.netloc}"
+
+
+def normalize_proxy(value: Any) -> str:
+    """代理地址：留空 = 不指定代理；``127.0.0.1:10809`` 这种没写协议的自动补 ``http://``。
+
+    补协议是因为本地代理软件（Clash/V2Ray 的 HTTP 混合端口）通常只给人一个 ``IP:端口``，
+    而 urllib 的 ``ProxyHandler`` 拿到没有协议的串会直接忽略它——不补的效果是「悄悄没走代理」。
+    所以 SOCKS 端口必须自己写全 ``socks5://IP:端口``。
+    带空格、协议不在 urllib 支持名单里的都当非法，返回空串由调用方决定报错还是忽略。
+    """
+    text = str(value or "").strip()
+    if not text or any(ch.isspace() for ch in text):
+        return ""
+    if "://" not in text:
+        text = "http://" + text
+    parts = urllib.parse.urlsplit(text)
+    if parts.scheme not in PROXY_SCHEMES or not parts.netloc:
+        return ""
+    return text
+
+
+def proxy_label(proxy: Any) -> str:
+    """给人看的那句「走代理 http://127.0.0.1:10809」或「直连」；``user:pass@`` 口令不进这行。"""
+    target = normalize_proxy(proxy)
+    if not target:
+        return "直连"
+    parts = urllib.parse.urlsplit(target)
+    netloc = parts.netloc.rsplit("@", 1)[-1]
+    return f"走代理 {urllib.parse.urlunsplit((parts.scheme, netloc, '', '', ''))}"
+
+
+def proxy_credentials(proxy: Any) -> str:
+    """代理地址里的 ``user:pass`` 部分（没有则空串）——用来把它从日志里抹掉。"""
+    target = normalize_proxy(proxy)
+    if not target or "@" not in target:
+        return ""
+    return urllib.parse.urlsplit(target).netloc.rsplit("@", 1)[0]
 
 
 def normalize_token(value: Any) -> str:
@@ -194,6 +244,7 @@ def effective_config(ctx: Any) -> dict[str, Any]:
                                   low=0.0, high=10.0)
     config["timeout"] = clamp_int(config.get("timeout"), int(DEFAULTS["timeout"]),
                                   low=5, high=120)
+    config["proxy"] = normalize_proxy(config.get("proxy"))
     config["include_raw"] = bool(config.get("include_raw", DEFAULTS["include_raw"]))
     return config
 
@@ -398,7 +449,7 @@ class ProgressClient:
 def build_export_config(
     *, data_dir: Path, host: str, token: str, username: str, password: str,
     mode: str, page_size: int, delay: float,
-    timeout: int, include_raw: bool,
+    timeout: int, include_raw: bool, proxy: str = "",
 ) -> ExportConfig:
     """把插件这一侧的选择翻译成工具的 :class:`ExportConfig`。
 
@@ -420,6 +471,7 @@ def build_export_config(
         max_pages=None,
         timeout=float(timeout),
         request_delay=float(delay),
+        proxy=normalize_proxy(proxy),
         include_raw=bool(include_raw),
         kinds=("comics",),
         snapshot=False,
@@ -439,6 +491,7 @@ def run_sync(
     delay: float,
     timeout: int,
     include_raw: bool,
+    proxy: str = "",
     on_progress: Any = None,
 ) -> tuple[SyncOutcome | None, str]:
     """真正干活的那一步：配置 → 同步 → 写导入文件。
@@ -446,13 +499,14 @@ def run_sync(
     返回 ``(结果, 错误信息)``；出错时结果=None，错误信息已经抹掉敏感值。
     ``on_progress(message, client)`` 每请求一页给一次（页面的进度条用它）。
     """
-    secrets = (token, password)
+    # 代理口令和令牌、密码同等待遇：它可能出现在工具抛出的异常文本里
+    secrets = (token, password, proxy_credentials(proxy))
     try:
         config = build_export_config(
             data_dir=ctx.data_dir, host=host, token=token, username=username,
             password=password, mode=mode, page_size=page_size,
             delay=delay, timeout=timeout,
-            include_raw=include_raw,
+            include_raw=include_raw, proxy=proxy,
         )
     except ConfigError as exc:
         return None, f"配置有问题：{redact(exc, *secrets)}"
@@ -471,7 +525,8 @@ def run_sync(
     known = previous.watermark()
     sink(f"本地状态库 {len(previous)} 条"
          + (f"（水位线 {known}）" if config.mode == "incremental" and known is not None else "")
-         + f"，开始{'全量' if config.mode == 'full' else '增量'}同步…")
+         + f"，开始{'全量' if config.mode == 'full' else '增量'}同步…"
+         + f"（{proxy_label(config.proxy)}）")
 
     inner = CopymangaClient(config)
 
@@ -514,6 +569,7 @@ def run_sync(
     summary = {
         "mode": report.mode,
         "host": report.host,
+        "network": proxy_label(config.proxy),           # 只留协议://主机:端口，口令不进这里
         "user": dict(report.user or {}),
         "remote_total": int(counts.get("total_remote") or wrapper.remote_total or 0),
         "local_total": int(counts.get("total_local") or 0),
@@ -719,6 +775,16 @@ def _form_host_error(form: Mapping[str, Any]) -> str:
     return BAD_HOST if raw and not normalize_host(raw) else ""
 
 
+def _form_proxy_error(form: Mapping[str, Any]) -> str:
+    """表单里**明确填了**一个认不出来的代理地址时报错，而不是悄悄当没填。
+
+    这条尤其要紧：这个域名在很多网络环境下直连根本不通，静默丢掉代理的结果是
+    「配了代理却还是超时」，用户完全看不出代理其实没生效。
+    """
+    raw = str(form.get("proxy") or "").strip()
+    return BAD_PROXY if raw and not normalize_proxy(raw) else ""
+
+
 def _settings_from_form(form: Mapping[str, Any], config: Mapping[str, Any]) -> dict[str, Any]:
     """从表单读这次的同步参数（没提交的字段用配置里的默认值）。
 
@@ -738,6 +804,10 @@ def _settings_from_form(form: Mapping[str, Any], config: Mapping[str, Any]) -> d
         chosen["username"] = str(form.get("username") or "").strip()
     if "mode" in form:
         chosen["mode"] = normalize_mode(form.get("mode"))
+    if "proxy" in form:
+        # 和 token 相反：代理框留空就是「这次不指定代理」，不是「沿用配置里那个」——
+        # 页面上要能一次临时直连，而代理地址本身不是凭据，重填一次不费事。
+        chosen["proxy"] = normalize_proxy(form.get("proxy"))
     if str(form.get("has_raw") or ""):
         chosen["include_raw"] = form.get("include_raw") is not None
     for key in ("page_size", "timeout"):
@@ -751,7 +821,7 @@ def _settings_from_form(form: Mapping[str, Any], config: Mapping[str, Any]) -> d
 def _persist_connection(
     ctx: Any, *, host: str, token: str, username: str, mode: str,
     page_size: int, delay: float, timeout: int,
-    include_raw: bool,
+    include_raw: bool, proxy: str = "",
 ) -> None:
     """把这次用的东西固化进配置（用户不用每次重填）。
 
@@ -767,6 +837,7 @@ def _persist_connection(
         "page_size": int(page_size),
         "delay": float(delay),
         "timeout": int(timeout),
+        "proxy": normalize_proxy(proxy),
         "include_raw": bool(include_raw),
     })
     try:
@@ -833,6 +904,7 @@ def _render(
         "page_size": form_value("page_size"),
         "delay": form_value("delay"),
         "timeout": form_value("timeout"),
+        "proxy": form_value("proxy"),
         "include_raw": config["include_raw"],
     }
 
@@ -887,7 +959,7 @@ def _handle_post(ctx: Any, request: Any, form: Mapping[str, Any]) -> str:
 
 def _save_config(ctx: Any, request: Any, form: Mapping[str, Any]) -> str:
     """保存默认值：以当前配置为底，只覆盖这个表单真的提交了的字段。"""
-    host_error = _form_host_error(form)
+    host_error = _form_host_error(form) or _form_proxy_error(form)
     if host_error:
         return _render(ctx, request, error=host_error)
     chosen = _settings_from_form(form, effective_config(ctx))
@@ -896,6 +968,7 @@ def _save_config(ctx: Any, request: Any, form: Mapping[str, Any]) -> str:
             f"认证={'有' if (chosen['token'] or chosen['username']) else '无'} "
             f"模式={MODE_LABEL[chosen['mode']]} "
             f"page_size={chosen['page_size']} delay={chosen['delay']} "
+            f"网络={proxy_label(chosen['proxy'])} "
             f"include_raw={chosen['include_raw']}")
     return _render(ctx, request, notice="默认配置已保存")
 
@@ -909,8 +982,8 @@ def _do_fetch(
     username = str(chosen["username"])
     password = str(form.get("password") or "").strip()
 
-    connection_error = _form_host_error(form) or _validate_connection(
-        chosen["host"], token, username, password)
+    connection_error = (_form_host_error(form) or _form_proxy_error(form)
+                        or _validate_connection(chosen["host"], token, username, password))
     if connection_error:
         return _render(ctx, request, error=connection_error)
 
@@ -918,7 +991,7 @@ def _do_fetch(
                         mode=chosen["mode"],
                         page_size=chosen["page_size"], delay=chosen["delay"],
                         timeout=chosen["timeout"],
-                        include_raw=chosen["include_raw"])
+                        include_raw=chosen["include_raw"], proxy=chosen["proxy"])
 
     job = _start_job(
         label=f"{FETCH_KIND_LABEL}（{MODE_LABEL[chosen['mode']]}同步）",
@@ -938,7 +1011,9 @@ def _do_fetch(
             _fetch_worker(ctx, job_id=job["id"], settings=chosen, token=token,
                           username=username, password=password, do_import=do_import)
         except Exception as exc:
-            message = f"同步线程意外退出：{type(exc).__name__}: {redact(exc, token, password)}"
+            secrets = (token, password, proxy_credentials(chosen.get("proxy")))
+            message = ("同步线程意外退出："
+                       f"{type(exc).__name__}: {redact(exc, *secrets)}")
             ctx.log(message)
             _finish_job(job["id"], state="error", error=message)
 
@@ -968,6 +1043,7 @@ def _fetch_worker(
         page_size=int(settings["page_size"]), delay=float(settings["delay"]),
         timeout=int(settings["timeout"]),
         include_raw=bool(settings["include_raw"]),
+        proxy=str(settings.get("proxy") or ""),
         on_progress=_progress_sink(job_id),
     )
     if outcome is None:
@@ -1028,6 +1104,7 @@ def run_cli_sync(
     delay: float = 0.0,
     timeout: int = 0,
     include_raw: bool = False,
+    proxy: str = "",
     dry_run: bool = False,
 ) -> str:
     """命令行的主体：同步（+ 导入），返回给人看的多行文本。"""
@@ -1040,6 +1117,11 @@ def run_cli_sync(
     chosen_delay = float(delay) if delay else float(config["delay"])
     chosen_timeout = int(timeout) if timeout else config["timeout"]
     chosen_raw = bool(include_raw) or config["include_raw"]
+    # 命令行留空 = 用配置里那个；亲手填了一个却认不出来就报错，别悄悄退回直连
+    raw_proxy = str(proxy or "").strip()
+    chosen_proxy = normalize_proxy(raw_proxy) if raw_proxy else str(config["proxy"])
+    if raw_proxy and not chosen_proxy:
+        raise ValueError(BAD_PROXY)
 
     connection_error = _validate_connection(chosen_host, chosen_token, chosen_username, password)
     if connection_error:
@@ -1049,13 +1131,13 @@ def run_cli_sync(
                         mode=chosen_mode,
                         page_size=chosen_page_size, delay=chosen_delay,
                         timeout=chosen_timeout,
-                        include_raw=chosen_raw)
+                        include_raw=chosen_raw, proxy=chosen_proxy)
 
     outcome, sync_error = run_sync(
         ctx, host=chosen_host, token=chosen_token, username=chosen_username, password=password,
         mode=chosen_mode, page_size=chosen_page_size,
         delay=chosen_delay, timeout=chosen_timeout,
-        include_raw=chosen_raw,
+        include_raw=chosen_raw, proxy=chosen_proxy,
     )
     if outcome is None:
         raise ValueError(sync_error)
@@ -1075,6 +1157,7 @@ def run_cli_sync(
         f"取消收藏 {report['removed']}",
         f"  请求      {report['requests']} 次 / {report['elapsed']} 秒 · {report['stop_reason']}",
         f"  认证      {report['auth_note'] or '用了本地存的 token'}",
+        f"  网络      {report['network']}",
         f"  状态库    {report['store_file']}（{report['store_mb']} MB）",
         f"  导入文件  {report['import_file']}（{report['import_mb']} MB，"
         f"{report['import_items']} 条，不含已取消收藏的）",
@@ -1113,8 +1196,8 @@ def run_cli_sync(
 class CopymangaFetch(Plugin):
     """拷贝漫画书架收藏抓取插件。
 
-    抓取/同步本身在插件目录里的 ``copymanga/`` 包里（原样分发，未改动）；
-    这个类只做宿主这一侧：配置、页面、后台任务、导入、命令行。
+    抓取/同步本身在插件目录里的 ``copymanga/`` 包里（上游 v2.0.0，只带 VENDOR.md 里
+    记档的那处代理补丁）；这个类只做宿主这一侧：配置、页面、后台任务、导入、命令行。
     """
 
     def start(self) -> None:
@@ -1123,7 +1206,7 @@ class CopymangaFetch(Plugin):
         stored = JsonStore(str(store_path(self.ctx.data_dir))).load()
         self.log(f"{self.title} 已启动：站点 {config['host']}，"
                  f"认证 {'已配' if (config['token'] or config['username']) else '未配'}，"
-                 f"默认 {MODE_LABEL[config['mode']]}，"
+                 f"默认 {MODE_LABEL[config['mode']]}，网络 {proxy_label(config['proxy'])}，"
                  f"本地状态库 {len(stored)} 条"
                  + (f"（上次抓取 {last.get('fetched_at')}）" if last.get("fetched_at") else "")
                  + ("" if importer_available(self.ctx)
@@ -1150,6 +1233,7 @@ class CopymangaFetch(Plugin):
         delay: float = 0.0,
         timeout: int = 0,
         include_raw: bool = False,
+        proxy: str = "",
         dry_run: bool = False,
     ) -> str:
         """同步拷贝漫画（copy4000.com）自己账号下的书架收藏，并（默认）直接导入 OmniShelf。
@@ -1169,11 +1253,14 @@ class CopymangaFetch(Plugin):
         page_size: 每页条数 1~500；0 = 用插件配置（默认 100）
         delay: 翻页间隔秒数 0~10；0 = 用插件配置（默认 0.3）
         timeout: 单次请求超时秒数 5~120；0 = 用插件配置（默认 40）
+        proxy: 代理服务器地址，如 http://127.0.0.1:10809；只写 ``IP:端口`` 按 HTTP 代理
+               对待，SOCKS 要写全协议头（socks5://IP:端口）。留空 = 用插件配置里的
+               （配置里也空着就不指定代理，那时 urllib 仍认 HTTPS_PROXY 环境变量）
         include_raw: 状态库里保留接口原始返回（更占体积）；不传 = 用插件配置
         dry_run: 只同步不导入；文件照样落盘，之后可以到上传页手动导入
         """
         return run_cli_sync(
             self.ctx, mode=mode, host=host, token=token, username=username, password=password,
             page_size=page_size, delay=delay, timeout=timeout,
-            include_raw=include_raw, dry_run=dry_run,
+            include_raw=include_raw, proxy=proxy, dry_run=dry_run,
         )

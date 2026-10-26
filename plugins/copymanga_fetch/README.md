@@ -6,8 +6,9 @@
 这个插件：
 
 * 抓取/同步用的是**随插件分发的一份 copymanga 工具包**（`plugins/copymanga_fetch/copymanga/`，
-  原样复制、一行没改，见 `VENDOR.md`）——插件只负责表单、进度、落盘和导入；
-* **站点地址、token、账号、同步方式、翻页参数**都记在 `plugins_data/copymanga_fetch/config.toml`；
+  上游 v2.0.0 复制来的，只打过一处**记了档的本地补丁**——代理出口，见 `VENDOR.md`）——
+  插件只负责表单、进度、落盘和导入；
+* **站点地址、token、账号、同步方式、翻页参数、代理**都记在 `plugins_data/copymanga_fetch/config.toml`；
 * **增量 / 全量**两种同步：增量日常一两次请求就够，全量能发现老条目的变化和取消收藏；
 * 只抓**漫画**（工具也能抓動畫，但库里没有这个类型，也就没有能接它的 importer，所以不提供这个选项）；
 * 抓完**一键导入**（走宿主的 `import` 接口，和上传页/CLI 完全同一条链路）；
@@ -18,12 +19,14 @@
 网页：顶部导航 **插件** → **拷贝漫画书架抓取** → `/plugins/copymanga_fetch`
 
 1. **站点地址**默认 `https://copy4000.com`，换镜像站时改这里（贴整条书架页地址也行，只取域名）；
-2. **认证**二选一：
+2. **直连不通（超时）就在「代理」里填本地代理地址**，比如 `http://127.0.0.1:10809`；
+   只写 `127.0.0.1:10809` 也认（自动按 HTTP 代理补协议）；
+3. **认证**二选一：
    * 粘 **token**——浏览器开发者工具（F12）→ Network → 请求头里的 `Authorization: Token <token>`，
      或者直接看 Cookie 里的 `token` 值；
    * 没有令牌就勾开下面那栏，填**用户名 + 密码**，插件登录换一个令牌（换到的令牌会留下，密码不会）；
-3. 第一次先跑一次**全量**，把整个书架落下来；以后用**增量**就很快；
-4. 点 **同步并导入**。
+4. 第一次先跑一次**全量**，把整个书架落下来；以后用**增量**就很快；
+5. 点 **同步并导入**。
 
 命令行同理：
 
@@ -39,7 +42,14 @@ omnishelf plugin copymanga_fetch fetch_import --dry-run
 
 # 用账号密码登录（口令会留在 shell 历史里，介意就用 --token）
 omnishelf plugin copymanga_fetch fetch_import --username <账号> --password <口令>
+
+# 直连不通时走代理；报告里会写这次用的是哪条路
+omnishelf plugin copymanga_fetch fetch_import --proxy http://127.0.0.1:10809
 ```
+
+`--proxy` 留空 = 用配置里存着的那个（和 `--host` / `--token` 一个口径），不是「这次直连」；
+页面上的代理框相反，**空着就是这次直连**（代理地址不是凭据，重填一次不费事）。
+写坏了（比如 `socks9://…`）会直接报错，不会悄悄退回直连。
 
 ## 关于认证
 
@@ -49,6 +59,9 @@ omnishelf plugin copymanga_fetch fetch_import --username <账号> --password <�
   直接再点一次同步就行，不会被要求重新认证。要换账号就粘一个新令牌。
 * **令牌过期**（接口回 401）时，这次填了用户名密码就自动重新登录再同步。
 * **密码不落盘、不进日志、不回显**，只在本次同步里用一次。
+* 代理地址写成 `http://用户:口令@主机:端口` 也可以（需要认证的代理），**口令按凭据对待**：
+  日志、`meta`、报告里那句「网络」只留 `协议://主机:端口`；只有代理输入框回填的是你存的原文
+  （抹掉口令的话，下次提交就悄悄把代理的认证丢了）。
 
 ## 两种同步方式
 
@@ -74,6 +87,7 @@ omnishelf plugin copymanga_fetch fetch_import --username <账号> --password <�
 | `page_size` | `100` | 每页条数 1~500，越大请求越少 |
 | `delay` | `0.3` | 翻页间隔秒数 |
 | `timeout` | `40` | 单次请求超时秒数 |
+| `proxy` | 空 | 代理服务器，如 `http://127.0.0.1:10809`；留空 = 不指定（见下） |
 | `include_raw` | `false` | 状态库里保留接口返回的全部字段（导入用不到，文件会大不少） |
 
 ## 落盘与导入
@@ -103,4 +117,10 @@ omnishelf plugin copymanga_fetch fetch_import --username <账号> --password <�
   所以不给这个开关；同理不提供 CSV / Markdown / Excel 的额外导出——抓完直接入库，
   状态库和导入文件本来就是 JSON；
 * 全量**没有单次页数上限**：一次点击就一路翻到末页，几千条的书架也只是慢一点；
-  报告会写这次停在什么原因上（`complete` / `known-boundary` / `watermark-reached`）。
+  报告会写这次停在什么原因上（`complete` / `known-boundary` / `watermark-reached`）；
+* **代理的口径和哔咔 / Steam 那几个插件一致**：HTTP 出口只有一处（工具包的
+  `CopymangaClient._open`），填了代理就**只走它**——显式的代理会顶掉 urllib 从环境变量读来那份，
+  中途也**不会**悄悄退回直连；留空才认系统的 `HTTP_PROXY` / `HTTPS_PROXY`，没设就是直连。
+  登录那一次走的是同一个出口，所以不会出现「登录成功、抓取却连不上」这种半截状态；
+  连不上时错误里会带「（经代理 …）」，一眼看出是哪条路的问题。
+  SOCKS 端口要自己写全协议头（`socks5://127.0.0.1:10808`）——补成 `http://` 就全错了。

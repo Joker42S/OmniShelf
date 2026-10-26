@@ -3,7 +3,8 @@
 抓取本身在 ``plugins/copymanga_fetch/copymanga/``（原样复制的工具包）里，所以这里测的是
 「插件那一层怎么用它」：表单 → 配置 → 同步 → 状态库/导入文件 → importer ``copymanga`` 入库。
 
-测试**不出网**：把 ``urllib.request.urlopen`` 换成假站点，按 ``offset``/``limit`` 切片返回
+测试**不出网**：把 ``urllib.request.urlopen`` 和 ``build_opener`` 都换成假站点（配了代理时工具包
+走的是 ``build_opener``），按 ``offset``/``limit`` 切片返回
 ``tests/plugin_fixtures/copymanga_collect_*.json``（**合成数据**：假 id、假域名，没有任何真实收藏）。
 凭据也全是合成的，只用来断言「令牌会留下、密码不会」。
 """
@@ -49,6 +50,12 @@ NEW_TOKEN = "synthetic-token-rotated-9876543210"
 STALE_TOKEN = "synthetic-token-expired-1111111111"
 USER = "synthetic-user"
 PASSWORD = "synthetic-password"
+
+#: 合成代理地址：只用来断言「请求真的经过了它」，不是任何人在用的端口
+PROXY = "http://proxy.invalid:10809"
+PROXY_USER = "synthetic-proxy-user"
+PROXY_PASSWORD = "synthetic-proxy-password"
+PROXY_WITH_AUTH = f"http://{PROXY_USER}:{PROXY_PASSWORD}@proxy.invalid:10809"
 
 #: 假站上的书架：漫画 6 条（收藏 id 3001~3006，越新越大）
 COMICS = "copymanga_collect_comics.json"
@@ -110,6 +117,7 @@ def install_fake_network(
     boom: str = "",
     log: list[dict[str, str]] | None = None,
     before_request: Any = None,
+    proxy_trace: list[dict[str, str]] | None = None,
 ) -> list[str]:
     """把假站点接上，返回「请求过的 URL」。
 
@@ -118,7 +126,8 @@ def install_fake_network(
     ``valid_token`` 是唯一认的令牌，其余一律 401；``login_token`` 给了才认账号密码登录，
     登录要按工具的协议校验 ``base64(密码-salt)``，对不上就回「账号或密码错误」；
     ``boom`` 非空时收藏接口连不上（验证「接口挂了不炸页面」）；
-    ``before_request(url)`` 在每个请求前调用一次（进度条测试用它卡住线程）。
+    ``before_request(url)`` 在每个请求前调用一次（进度条测试用它卡住线程）；
+    ``proxy_trace`` 给了就记录每次 ``build_opener`` 收到的代理表（只有配了代理才会建）。
     """
     calls: list[str] = []
     shelf = {"comics": rows_of(comics) if comics else [], "cartoons": []}
@@ -187,7 +196,22 @@ def install_fake_network(
     def fake_urlopen(request: Any, timeout: float | None = None, **kwargs: Any) -> FakeResponse:
         return serve(request)
 
+    class FakeOpener:
+        """配了代理时工具包建出来的那台 opener：照样把请求交给同一个假站点。"""
+
+        def open(self, request: Any, timeout: Any = None, **kwargs: Any) -> FakeResponse:
+            return serve(request)
+
+    def fake_build_opener(*handlers: Any) -> FakeOpener:
+        # 只认显式传进来的 ProxyHandler：配了代理才建 opener，留空走 urlopen
+        for handler in handlers:
+            proxies = getattr(handler, "proxies", None)
+            if isinstance(proxies, dict) and proxy_trace is not None:
+                proxy_trace.append(dict(proxies))
+        return FakeOpener()
+
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(urllib.request, "build_opener", fake_build_opener)
     monkeypatch.setattr(time, "sleep", lambda *_: None)        # 限速/退避不能真的睡
     return calls
 
@@ -260,6 +284,7 @@ def fetch_form(**overrides: Any) -> dict[str, Any]:
         "page_size": "3",
         "delay": "0",
         "timeout": "10",
+        "proxy": "",
         "has_raw": "1",
     }
     for key, value in overrides.items():
@@ -302,8 +327,10 @@ def _load_plugin_module() -> Any:
 # --------------------------------------------------------------------- 随插件分发的工具包
 
 
-#: 上游 v2.0.0 的逐个文件哈希：**工具必须逐字节原样**（见 VENDOR.md）
-VENDORED_SHA256 = {
+#: 上游 v2.0.0 的逐个文件哈希。
+#: 2026-10-26 起有**一处记了档的本地补丁**（代理：``proxy`` 字段 + ``_open`` 出口 + ``--proxy``），
+#: 涉及的文件见 ``LOCAL_PATCH_SHA256``；其余文件仍必须与上游**逐字节一致**（见 VENDOR.md）。
+UPSTREAM_SHA256 = {
     "copymanga/__init__.py": "5a3927b23de63b2d0088f18cd97b08595808e88798182692c000922c003790d9",
     "copymanga/__main__.py": "06cb7131c4d541259a13abe4e6b8e2bbb2d90dcf2ee7b5b8e8bc395280078531",
     "copymanga/cli.py": "82eb238ef178430aec93ac753c697da9879c57a06f4635be2ebdd7fa5fb6dd35",
@@ -316,16 +343,26 @@ VENDORED_SHA256 = {
     "copymanga/store.py": "c81e43edb6fa2f5dfaf02e77ae0eea388f0d6be6d55f8cc9ff10833461ff9a32",
 }
 
+#: 被本地补丁动过的文件，以及补丁打上之后的哈希（期望值由这份表说了算）
+LOCAL_PATCH_SHA256 = {
+    "copymanga/__init__.py": "0abf0278255d626068467b4b11bee8a8a30ab60721aa7cbd660ace8200a9d5e2",
+    "copymanga/cli.py": "48a0a56bc23421f7ddf7be51f63d706c44d6bd39864b72997ac6895b3b448e68",
+    "copymanga/client.py": "49843613d263db57466a46fd6e88b1f1e873c80c4ffaf175c934d3426a87501f",
+    "copymanga/config.py": "0e2e64a756ee7ad41babf8ea360eea67e40fa14cc424c0930f342e9b85ffb0ef",
+}
 
-def test_vendored_tool_is_unmodified() -> None:
-    """红线：抓取的活儿由那份工具包干，但**一行都不许改**。
 
-    需要工具配合什么，就在插件里绕（进度靠套一层 client，令牌自己存）；
-    真到了非改工具不可的地步，停下来向用户提需求，别偷偷动。
+def test_vendored_tool_only_carries_the_documented_local_patch() -> None:
+    """红线：抓取的活儿由那份工具包干，改动只能是**记了档的本地补丁**。
+
+    需要工具配合什么，先想能不能在插件里绕（进度靠套一层 client，令牌自己存）；
+    非改工具不可（代理就只能改在 HTTP 出口那）就把它写进 VENDOR.md 的「本地补丁」表、
+    同步这里的哈希，别偷偷动。
     """
     present = sorted(str(path.relative_to(PLUGIN_DIR)) for path in VENDOR_DIR.glob("*.py"))
-    assert present == sorted(VENDORED_SHA256), "工具包的文件增删了：先确认上游是不是真改了"
-    for relative, expected in VENDORED_SHA256.items():
+    assert present == sorted(UPSTREAM_SHA256), "工具包的文件增删了：先确认上游是不是真改了"
+    assert set(LOCAL_PATCH_SHA256) <= set(UPSTREAM_SHA256)
+    for relative, expected in {**UPSTREAM_SHA256, **LOCAL_PATCH_SHA256}.items():
         path = PLUGIN_DIR / relative
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
         assert digest == expected, f"{relative} 被改动过（期望 {expected[:12]}…，实际 {digest[:12]}…）"
@@ -344,7 +381,7 @@ def test_vendored_tool_ships_no_credentials_or_real_data() -> None:
     for name in ("config.json", "data"):
         assert not (PLUGIN_DIR / name).exists(), name
     text = (PLUGIN_DIR / "VENDOR.md").read_text(encoding="utf-8")
-    assert "不许改动" in text and "config.json" in text
+    assert "本地补丁" in text and "config.json" in text
 
 
 def test_plugin_only_uses_the_sdk() -> None:
@@ -377,6 +414,104 @@ def test_metadata_and_files_contract() -> None:
         assert path.is_file(), path
 
 
+# --------------------------------------------------------------------- 工具包的代理出口
+
+
+def test_toolkit_proxy_reaches_urllib_only_when_configured(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """配了代理就要真的交给 ``ProxyHandler``（http 和 https 两个口都得填）。
+
+    这是「代理生效」唯一的凭据：``ExportConfig`` 里存了个字符串没用——``_open`` 那一处
+    要走 ``build_opener`` 才算；留空时必须压根不建 opener（走 ``urlopen``，认环境变量）。
+    """
+    trace: list[dict[str, str]] = []
+    install_fake_network(monkeypatch, proxy_trace=trace)
+    module = _load_plugin_module()
+
+    client = module.CopymangaClient(module.ExportConfig(
+        token=TOKEN, proxy="127.0.0.1:10809", data_dir=str(tmp_path)))
+    rows, total = client.fetch_collect_page("comics")
+    assert rows and total == 6
+    assert trace == [{"http": "http://127.0.0.1:10809", "https": "http://127.0.0.1:10809"}]
+
+    # 留空 = 不在这层指定代理：不建 opener，urlopen 那条默认路径照旧
+    trace.clear()
+    module.CopymangaClient(module.ExportConfig(token=TOKEN, data_dir=str(tmp_path))
+                           ).fetch_collect_page("comics")
+    assert trace == []
+
+    # 本地代理软件通常只给「IP:端口」，不补协议 urllib 会直接忽略它（= 悄悄没走代理）
+    config_class = module.ExportConfig
+    assert config_class(proxy="127.0.0.1:10809").proxy_target == "http://127.0.0.1:10809"
+    # SOCKS 得自己写全协议头，补成 http:// 就全错了
+    assert config_class(proxy="socks5://127.0.0.1:10808").proxy_target == "socks5://127.0.0.1:10808"
+    assert config_class(proxy="  ").proxy_target == ""
+    assert config_class().proxy_target == ""
+
+
+def test_toolkit_proxy_keeps_the_tls_setting_with_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """关掉证书校验时，代理那条路也得跟着不校验（否则 ``--insecure`` 只剩一半）。"""
+    handlers: list[str] = []
+
+    def spy(*built: Any) -> Any:
+        handlers.extend(type(handler).__name__ for handler in built)
+        return original(*built)
+
+    trace: list[dict[str, str]] = []
+    install_fake_network(monkeypatch, proxy_trace=trace)
+    original = urllib.request.build_opener          # 假站点里那个 FakeOpener 版本
+    monkeypatch.setattr(urllib.request, "build_opener", spy)
+
+    module = _load_plugin_module()
+    module.CopymangaClient(module.ExportConfig(
+        token=TOKEN, proxy=PROXY, verify_ssl=False, data_dir=str(tmp_path)
+    )).fetch_collect_page("comics")
+    assert handlers == ["ProxyHandler", "HTTPSHandler"]
+
+    handlers.clear()
+    trace.clear()
+    module.CopymangaClient(module.ExportConfig(
+        token=TOKEN, proxy=PROXY, data_dir=str(tmp_path)
+    )).fetch_collect_page("comics")
+    assert handlers == ["ProxyHandler"]               # 正常校验时不掺别的 handler
+
+
+def test_toolkit_proxy_failure_names_the_proxy(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """「连不上」要说是走哪条路连不上：这个域名直经常常被挡，分不清就白排查半天。"""
+    install_fake_network(monkeypatch, boom="Connection refused")
+    module = _load_plugin_module()
+
+    with pytest.raises(module.CopymangaError) as caught:
+        module.CopymangaClient(module.ExportConfig(
+            token=TOKEN, proxy=PROXY, retries=1, quiet=True, data_dir=str(tmp_path)
+        )).fetch_collect_page("comics")
+    text = str(caught.value)
+    assert f"经代理 {PROXY}" in text
+
+    # 直连失败不该扯出一个代理
+    with pytest.raises(module.CopymangaError) as caught:
+        module.CopymangaClient(module.ExportConfig(
+            token=TOKEN, retries=1, quiet=True, data_dir=str(tmp_path)
+        )).fetch_collect_page("comics")
+    assert "代理" not in str(caught.value)
+
+
+def test_toolkit_cli_takes_a_proxy(tmp_path: Path) -> None:
+    """命令行那一侧也得有 ``--proxy``（页面上能填、命令行不能填没道理）。"""
+    module = _load_plugin_module()
+    cli = importlib.import_module("copymanga.cli")      # 工具包自带的命令行
+    args = cli.build_parser().parse_args(["--proxy", "127.0.0.1:10809"])
+    assert cli._overrides_from_args(args)["proxy"] == "127.0.0.1:10809"
+    assert "--proxy" in cli.build_parser().format_help()
+    assert module.ExportConfig(**{"proxy": "127.0.0.1:10809"}).proxy_target == \
+        "http://127.0.0.1:10809"
+
+
 # --------------------------------------------------------------------- 纯函数
 
 
@@ -400,6 +535,27 @@ def test_normalize_host_and_token() -> None:
     assert module.normalize_token("") == ""
 
 
+def test_normalize_proxy() -> None:
+    module = _load_plugin_module()
+    assert module.normalize_proxy(PROXY) == PROXY
+    assert module.normalize_proxy("127.0.0.1:10809") == "http://127.0.0.1:10809"
+    assert module.normalize_proxy("socks5://127.0.0.1:10808") == "socks5://127.0.0.1:10808"
+    assert module.normalize_proxy("  " + PROXY + " ") == PROXY
+    assert module.normalize_proxy("") == ""
+    assert module.normalize_proxy(None) == ""
+    assert module.normalize_proxy("ftp://127.0.0.1:21") == ""       # 不支持的协议
+    assert module.normalize_proxy("http://127.0.0.1 :10809") == ""  # 带空格的不当地址
+    assert module.normalize_proxy("http://") == ""                  # 只有协议没有主机
+
+    # 给人看的那一行：只留协议://主机:端口，口令绝不跟着走
+    assert module.proxy_label("") == "直连"
+    assert module.proxy_label("127.0.0.1:10809") == "走代理 http://127.0.0.1:10809"
+    assert module.proxy_label(PROXY_WITH_AUTH) == f"走代理 {PROXY}"
+    assert module.proxy_credentials(PROXY_WITH_AUTH) == f"{PROXY_USER}:{PROXY_PASSWORD}"
+    assert module.proxy_credentials(PROXY) == ""
+    assert module.proxy_credentials("bad proxy") == ""
+
+
 def test_mode_and_clamping() -> None:
     module = _load_plugin_module()
     assert module.normalize_mode("full") == "full"
@@ -416,6 +572,11 @@ def test_mode_and_clamping() -> None:
     assert config["page_size"] == 500                   # 夹到接口上限
     assert config["delay"] == 10.0
     assert config["timeout"] == 5
+    # 代理：配置里补协议、坏值当没填（默认就是不指定代理）
+    assert module.effective_config(
+        module._FakeContext({"proxy": "127.0.0.1:10809"}))["proxy"] == "http://127.0.0.1:10809"
+    assert module.effective_config(module._FakeContext({"proxy": "ftp://nope"}))["proxy"] == ""
+    assert module.effective_config(module._FakeContext({}))["proxy"] == ""
     # 陈旧配置里的多余键（以前的「動畫」/额外导出/单次页数上限）会被丢掉，不会再传下去
     assert "cartoons" not in config and "formats" not in config
     assert "max_pages" not in config                    # 没有单次页数上限这回事
@@ -428,6 +589,12 @@ def test_redact_masks_secrets() -> None:
     assert TOKEN not in masked and PASSWORD not in masked
     assert "***" in masked
     assert module.redact("短", "ab") == "短"            # 太短的值不抹，免得把普通文本打满星
+    # 代理口令也是凭据：异常文本里整条地址会原样带出来，日志前要一起抹
+    leaked = module.redact(f"请求失败（经代理 {PROXY_WITH_AUTH}）",
+                           module.proxy_credentials(PROXY_WITH_AUTH))
+    assert PROXY_USER not in leaked and PROXY_PASSWORD not in leaked
+    assert PROXY_USER not in leaked and PROXY_PASSWORD not in leaked
+    assert "***" in leaked and "proxy.invalid:10809" in leaked   # 主机留着还能查，口令没了
 
 
 def test_build_import_payload_skips_removed(tmp_path: Path) -> None:
@@ -464,6 +631,9 @@ def test_plugin_page_renders(client: TestClient) -> None:
     assert 'name="token"' in body
     assert 'name="username"' in body
     assert 'type="password" name="password"' in body
+    # 这一家在很多网络环境里直连不通，页面上得有一栏代理
+    assert 'name="proxy"' in body
+    assert "http://127.0.0.1:10809" in body            # placeholder 给个能照抄的形状
     # 复选框配了同名标记（不勾时要能区分「没勾」和「这张表不管这个开关」）
     assert 'name="has_raw"' in body
     # 動畫只能说明一句，不能给选项；额外导出的那一整套都撤了
@@ -487,6 +657,7 @@ def test_save_config_persists_but_never_the_password(
         "token": f"Token {TOKEN}", "username": USER, "password": PASSWORD,
         "mode": "full", "page_size": "200", "max_pages": "20", "delay": "1.5",
         "timeout": "30",
+        "proxy": "127.0.0.1:10809",
         # 浏览器提交表单时，那几个隐藏标记和复选框是一起发出去的
         "has_raw": "1", "include_raw": "on",
     })
@@ -498,6 +669,7 @@ def test_save_config_persists_but_never_the_password(
     assert f'username = "{USER}"' in text
     assert PASSWORD not in text                         # 密码不落盘
     assert 'mode = "full"' in text
+    assert 'proxy = "http://127.0.0.1:10809"' in text   # 代理地址会存（它不是凭据）
     assert "include_raw = true" in text
     assert "cartoons" not in text and "formats" not in text
     assert "max_pages" not in text                      # 表单里塞的旧键不会落进配置
@@ -508,6 +680,17 @@ def test_save_config_rejects_bad_host(client: TestClient) -> None:
         "action": "save", "form": "save", "host": "ftp://nope"})
     assert "站点地址要写成" in response.text
     assert "默认配置已保存" not in response.text
+
+
+def test_save_config_rejects_bad_proxy(client: TestClient,
+                                       settings_with_repo_plugins: Settings) -> None:
+    """代理写坏了要说一声，而不是悄悄当没填：默认值一旦丢了，下次同步就变成直连超时。"""
+    response = client.post(f"/plugins/{PLUGIN_ID}", data={
+        "action": "save", "form": "save", "host": DEFAULT_HOST, "proxy": "proxy 10809"})
+    assert "代理地址要写成" in response.text
+    assert "默认配置已保存" not in response.text
+    path = config_file(settings_with_repo_plugins)
+    assert "proxy 10809" not in (path.read_text(encoding="utf-8") if path.exists() else "")
 
 
 def test_unchecking_a_box_really_turns_it_off(
@@ -736,6 +919,99 @@ def test_request_failure_is_shown_not_raised(
     response = client.post(f"/plugins/{PLUGIN_ID}", data=fetch_form())
     assert response.status_code == 200
     assert "请求失败" in wait_for_sync(client)
+
+
+# --------------------------------------------------------------------- 页面上的代理
+
+
+def test_form_proxy_is_used_shown_and_persisted(
+    client: TestClient, settings_with_repo_plugins: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """表单里填的代理要真的生效、要在结果里说一声、还要留下来下次不用再填。"""
+    trace: list[dict[str, str]] = []
+    install_fake_network(monkeypatch, proxy_trace=trace)
+    client.post(f"/plugins/{PLUGIN_ID}", data=fetch_form(mode="full", proxy="127.0.0.1:10809"))
+    html = wait_for_sync(client)
+
+    assert trace and all(row == {"http": "http://127.0.0.1:10809",
+                                 "https": "http://127.0.0.1:10809"} for row in trace)
+    assert "走代理 http://127.0.0.1:10809" in html        # 报告里那条「网络」
+    assert 'value="http://127.0.0.1:10809"' in html      # 框里回填，不用重打
+    text = config_file(settings_with_repo_plugins).read_text(encoding="utf-8")
+    assert 'proxy = "http://127.0.0.1:10809"' in text
+    meta = read_json(data_dir(settings_with_repo_plugins) / "copymanga_fetch.meta.json")
+    assert meta["network"] == "走代理 http://127.0.0.1:10809"
+
+
+def test_blank_proxy_box_means_direct(
+    client: TestClient, settings_with_repo_plugins: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """代理框空着提交 = 「这次直连」（和令牌框相反：那个留空是沿用配置里那个）。
+
+    代理地址不是凭据，重填不费事；要的是「配置里存着代理，偶尔直连试一次」这个开关。
+    """
+    trace: list[dict[str, str]] = []
+    install_fake_network(monkeypatch, proxy_trace=trace)
+    client.post(f"/plugins/{PLUGIN_ID}", data={
+        "action": "save", "form": "save", "host": DEFAULT_HOST, "proxy": PROXY})
+    assert f'proxy = "{PROXY}"' in config_file(settings_with_repo_plugins).read_text(encoding="utf-8")
+
+    client.post(f"/plugins/{PLUGIN_ID}", data=fetch_form(proxy=""))
+    html = wait_for_sync(client)
+    assert trace == []                                   # 压根没建带 ProxyHandler 的 opener
+    assert "直连" in html
+    assert 'proxy = ""' in config_file(settings_with_repo_plugins).read_text(encoding="utf-8")
+
+
+def test_bad_proxy_in_the_form_is_refused_before_starting(
+    client: TestClient, settings_with_repo_plugins: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """代理写坏了就直接说，不能悄悄当没填然后跑一小时的直连超时。
+
+    这一家直经常常被挡：静默丢掉代理的结果是「明明配了代理还是连不上」，最难查。
+    """
+    trace: list[dict[str, str]] = []
+    install_fake_network(monkeypatch, proxy_trace=trace)
+    response = client.post(f"/plugins/{PLUGIN_ID}", data=fetch_form(proxy="proxy 10809"))
+    assert "代理地址要写成" in response.text
+    assert "正在同步" not in response.text               # 别起一个走错路的后台任务
+    assert trace == []
+    path = config_file(settings_with_repo_plugins)
+    assert "proxy 10809" not in (path.read_text(encoding="utf-8") if path.exists() else "")
+
+
+def test_sync_failure_names_the_route_it_tried(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """连不上要说清走的是哪条路：直连被挡和代理没起来，修法完全不一样。"""
+    install_fake_network(monkeypatch, boom="connection refused")
+    client.post(f"/plugins/{PLUGIN_ID}", data=fetch_form(proxy=PROXY))
+    assert f"经代理 {PROXY}" in wait_for_sync(client)
+
+
+def test_proxy_credentials_stay_out_of_the_page_and_log(
+    client: TestClient, settings_with_repo_plugins: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """带 ``user:pass@`` 的代理：日志、meta 和报告里那句「网络」都不能带口令。
+
+    这三处是用户会贴出来问问题的地方。唯一还留着口令的是代理输入框本身回填的那条
+    （= 用户自己存的原文）——那里要是抹掉口令，下次提交就悄悄把代理的认证丢了。
+    """
+    trace: list[dict[str, str]] = []
+    install_fake_network(monkeypatch, proxy_trace=trace)
+    client.post(f"/plugins/{PLUGIN_ID}", data=fetch_form(mode="full", proxy=PROXY_WITH_AUTH))
+    html = wait_for_sync(client)
+
+    assert trace and all(row == {"http": PROXY_WITH_AUTH, "https": PROXY_WITH_AUTH}
+                         for row in trace)
+    row = re.search(r"<th>网络</th><td>([^<]*)</td>", html)
+    assert row and f"走代理 {PROXY}" in row.group(1)
+    for text in ("\n".join(plugin_log(settings_with_repo_plugins)),
+                 str(read_json(data_dir(settings_with_repo_plugins) / "copymanga_fetch.meta.json")),
+                 row.group(1)):
+        assert PROXY_USER not in text and PROXY_PASSWORD not in text
+    assert f'value="{PROXY_WITH_AUTH}"' in html
+    assert PROXY_WITH_AUTH in config_file(settings_with_repo_plugins).read_text(encoding="utf-8")
 
 
 # --------------------------------------------------------------------- 认证
@@ -985,7 +1261,7 @@ def test_cli_command_is_registered(manager: PluginManager) -> None:
     commands = {item.name: item for item in manager.commands(PLUGIN_ID)}
     assert "fetch_import" in commands
     for param in ("mode", "host", "token", "username", "password", "page_size", "delay",
-                  "timeout", "include_raw", "dry_run"):
+                  "timeout", "proxy", "include_raw", "dry_run"):
         assert param in commands["fetch_import"].params, param
     # 動畫和额外导出的开关撤了；单次页数上限也一起去掉——全量就该翻到末页
     for gone in ("cartoons", "formats", "max_pages"):
@@ -1016,6 +1292,36 @@ def test_cli_command_dry_run_only_syncs(
     assert "已跳过（--dry-run）" in output
     session.expire_all()
     assert repo.list_items(session, kind="manga") == []
+
+
+def test_cli_command_reports_and_validates_the_proxy(
+    manager: PluginManager, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """命令行和页面看到的是同一套代理逻辑：填了就报走代理，填坏了就报错别硬跑。"""
+    from omnishelf.plugins.manager import PluginError
+
+    manager.load_all()
+    trace: list[dict[str, str]] = []
+    install_fake_network(monkeypatch, proxy_trace=trace)
+    output = manager.run_command(PLUGIN_ID, "fetch_import",
+                                 ["--token", TOKEN, "--proxy", "127.0.0.1:10809"])
+    assert "网络      走代理 http://127.0.0.1:10809" in output
+    assert trace and all(row["https"] == "http://127.0.0.1:10809" for row in trace)
+
+    # 命令行留空 = 用配置里刚存的那个（和 host/token 一个口径），不是「这次直连」
+    trace.clear()
+    output = manager.run_command(PLUGIN_ID, "fetch_import", ["--token", TOKEN, "--proxy", ""])
+    assert "走代理 http://127.0.0.1:10809" in output and trace
+
+    # 亲手填了一个认不出来的地址：报错，不悄悄退回直连
+    with pytest.raises(PluginError):
+        manager.run_command(PLUGIN_ID, "fetch_import", ["--token", TOKEN, "--proxy", "ftp://x"])
+
+    # 带口令的代理：主机进输出，口令不进
+    output = manager.run_command(PLUGIN_ID, "fetch_import",
+                                 ["--token", TOKEN, "--proxy", PROXY_WITH_AUTH])
+    assert f"走代理 {PROXY}" in output
+    assert PROXY_USER not in output and PROXY_PASSWORD not in output
 
 
 def test_cli_command_needs_a_credential(manager: PluginManager) -> None:

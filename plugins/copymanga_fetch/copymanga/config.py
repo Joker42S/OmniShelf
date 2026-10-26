@@ -68,6 +68,7 @@ ENV_MAP = {
     "COPYMANGA_DATA_DIR": "data_dir",
     "COPYMANGA_PAGE_SIZE": "page_size",
     "COPYMANGA_TIMEOUT": "timeout",
+    "COPYMANGA_PROXY": "proxy",
 }
 
 
@@ -102,6 +103,9 @@ class ExportConfig:
     :param retry_backoff: 重试退避基数，第 n 次等待 ``retry_backoff * n`` 秒。
     :param request_delay: 翻页之间的间隔秒数，避免请求过快。
     :param user_agent: 请求 UA。
+    :param proxy: 代理服务器地址，如 ``http://127.0.0.1:10809``。留空表示不在这里指定
+        （这时走 urllib 的默认行为：认系统的 ``HTTPS_PROXY`` 等环境变量，没设就是直连）。
+        填了就**只走这一个**，环境变量不再参与。
     :param verify_ssl: 是否校验 TLS 证书。
     :param data_dir: 本地数据目录，存放状态库与导出文件。
     :param store_name: 状态库文件名。
@@ -142,6 +146,7 @@ class ExportConfig:
     retry_backoff: float = 1.5
     request_delay: float = 0.3
     user_agent: str = DEFAULT_UA
+    proxy: str = ""
     verify_ssl: bool = True
 
     # —— 本地存储与输出 ——
@@ -181,6 +186,18 @@ class ExportConfig:
     def snapshot_dir(self) -> str:
         """快照目录。"""
         return os.path.join(self.data_dir, "snapshots")
+
+    @property
+    def proxy_target(self) -> str:
+        """交给 urllib 的代理地址；没写协议头的按 HTTP 代理对待（``127.0.0.1:10809`` 也能用）。
+
+        空值返回空串，含义是「不在这里指定代理」——此时走 urllib 默认行为，
+        认系统的 ``HTTP_PROXY`` / ``HTTPS_PROXY``，没设就是直连。
+        """
+        text = str(self.proxy or "").strip()
+        if text and "://" not in text:
+            text = "http://" + text
+        return text
 
     # ------------------------------------------------------------------
     # 构造与校验

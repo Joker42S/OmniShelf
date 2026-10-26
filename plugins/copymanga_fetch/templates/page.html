@@ -132,6 +132,9 @@
         {% if report.auth_note %}
           <tr><th>认证</th><td>{{ report.auth_note }}</td></tr>
         {% endif %}
+        {% if report.network %}
+          <tr><th>网络</th><td>{{ report.network }}</td></tr>
+        {% endif %}
         <tr><th>待导入</th>
             <td>{{ report.import_items }} 条<small>（已取消收藏的不算）</small></td></tr>
         {% if not report.ordering_verified %}
@@ -246,6 +249,14 @@
         <input type="number" name="timeout" min="5" max="120" value="{{ form.timeout }}">
         <small>单次请求等多久算失败（默认 40）。</small>
       </label>
+      <label>代理
+        <input type="text" name="proxy" value="{{ form.proxy }}"
+               placeholder="http://127.0.0.1:10809">
+        <small>直连不通（超时）时填本地代理地址，填了这次就全程只走它，<strong>登录那一次也算</strong>。
+          留空 = 不指定，一般是直连（系统设了 <code>HTTPS_PROXY</code> 时仍会用）。
+          只写 <code>IP:端口</code> 按 HTTP 代理对待；SOCKS 要写全，如
+          <code>socks5://127.0.0.1:10808</code>。</small>
+      </label>
     </div>
 
     <input type="hidden" name="has_raw" value="1">
@@ -288,6 +299,8 @@
       <div class="grid">
         <label>默认翻页间隔（秒） <input type="number" name="delay" min="0" max="10" step="0.1" value="{{ config.delay }}"></label>
         <label>默认请求超时（秒） <input type="number" name="timeout" min="5" max="120" value="{{ config.timeout }}"></label>
+        <label>默认代理 <input type="text" name="proxy" value="{{ config.proxy }}"
+                               placeholder="http://127.0.0.1:10809"></label>
       </div>
       <input type="hidden" name="has_raw" value="1">
       <label><input type="checkbox" name="include_raw" value="on" {% if config.include_raw %}checked{% endif %}>

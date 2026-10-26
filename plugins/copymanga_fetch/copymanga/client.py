@@ -5,6 +5,8 @@
 * 所有接口挂在同一个域名下，前端用的是 ``location.host``，所以这里用 ``config.host``。
 * 请求必须带 ``Authorization: Token <token>`` 头，只带 Cookie 会返回 401。
 * 还要带 ``platform: 2``。
+* 所有请求都从 :meth:`CopymangaClient._open` 这一个口出去，配了代理（``config.proxy``）
+  就在这一处换成代理服务器，token、登录、重试逻辑都不用管路由。
 """
 
 from __future__ import annotations
@@ -214,6 +216,26 @@ class CopymangaClient:
             headers.update(extra)
         return headers
 
+    def _open(
+        self, request: "urllib.request.Request", *, timeout: float, context: Any
+    ) -> Any:
+        """**唯一的 HTTP 出口**：配了代理就走代理服务器，没配就走 urllib 的默认路径。
+
+        抽成一个口子有两个用处：
+
+        * 测试可以整体替换（假站点同时换 ``urlopen`` 和 ``build_opener``），
+          token、登录、重试那套完全不需要知道请求是怎么路由的；
+        * 代理只在这里生效一次——显式的 ``ProxyHandler`` 会顶掉 urllib 从环境变量
+          读来的那份，所以填了代理就**只走这一个**，不会被系统环境半路换掉。
+        """
+        proxy = self.config.proxy_target
+        if not proxy:
+            return urllib.request.urlopen(request, timeout=timeout, context=context)
+        handlers: List[Any] = [urllib.request.ProxyHandler({"http": proxy, "https": proxy})]
+        if context is not None:                 # 关掉证书校验时，代理那条路也不校验
+            handlers.append(urllib.request.HTTPSHandler(context=context))
+        return urllib.request.build_opener(*handlers).open(request, timeout=timeout)
+
     def request(
         self,
         url: str,
@@ -245,12 +267,15 @@ class CopymangaClient:
         context = None if self.config.verify_ssl else ssl._create_unverified_context()
 
         last_err: Optional[Exception] = None
+        # 代理地址进错误信息：这类站点「连不上」最常见的原因就是代理没配好或代理不通，
+        # 光一句 URLError 分不清是代理的问题还是直连被挡。
+        via = ("（经代理 %s）" % self.config.proxy_target) if self.config.proxy_target else ""
         for attempt in range(1, max(1, retries) + 1):
             req = urllib.request.Request(
                 url, data=body, method=method.upper(), headers=self.build_headers(token)
             )
             try:
-                with urllib.request.urlopen(req, timeout=timeout, context=context) as resp:
+                with self._open(req, timeout=timeout, context=context) as resp:
                     text = resp.read().decode("utf-8", "replace")
                 try:
                     payload = json.loads(text)
@@ -283,7 +308,7 @@ class CopymangaClient:
                     print("    ! 请求失败(%s)，%.1fs 后重试…" % (last_err, wait))
                 time.sleep(wait)
 
-        raise ApiError("请求失败：%s" % last_err)
+        raise ApiError("请求失败：%s%s" % (last_err, via))
 
     # ------------------------------------------------------------------
     # 收藏数据

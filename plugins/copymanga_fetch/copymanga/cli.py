@@ -45,6 +45,9 @@ token 获取方式（任选其一）：
 
   # 指定域名与数据目录
   python -m copymanga --host https://copy4000.com --data-dir ./data
+
+  # 直连不通（超时/被挡）时走本地代理
+  python -m copymanga --proxy http://127.0.0.1:10809
 """
 
 
@@ -110,6 +113,12 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--kinds", default=None, help="收藏类型，逗号分隔，默认 comics,cartoons")
     g.add_argument("--free-types", default=None, help="接口分组，逗号分隔，默认 1,2")
     g.add_argument("--insecure", action="store_true", help="跳过 TLS 证书校验")
+    g.add_argument(
+        "--proxy",
+        default=None,
+        help="代理服务器地址，如 http://127.0.0.1:10809（只写 域名:端口 也行，按 HTTP 代理对待）。"
+             "默认不指定：这种情况下 urllib 仍会认 HTTPS_PROXY 之类的环境变量",
+    )
     g.add_argument("-q", "--quiet", action="store_true", help="静默模式")
     return p
 
@@ -135,6 +144,7 @@ def _overrides_from_args(args: argparse.Namespace) -> Dict[str, Any]:
         "kinds": args.kinds,
         "free_types": args.free_types,
         "formats": args.formats,
+        "proxy": args.proxy,
         "verify_ssl": False if args.insecure else None,
         "snapshot": False if args.no_snapshot else None,
         "include_raw": False if args.no_raw else None,
@@ -163,6 +173,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         print("拷貝漫畫收藏导出 | %s | 模式 %s | 排序 %s | 数据目录 %s"
               % (config.base_url, config.mode, config.ordering,
                  os.path.abspath(config.data_dir)))
+        if config.proxy_target:
+            print("  走代理：%s" % config.proxy_target)
 
     exporter = FavoritesExporter(config=config)
     try:

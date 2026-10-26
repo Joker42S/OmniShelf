@@ -56,7 +56,7 @@ def fetch_favorites(**kwargs):
 
     支持的参数与 :class:`~copymanga.config.ExportConfig` 一致，
     常用：``token`` / ``cookie`` / ``username`` / ``password`` /
-    ``host`` / ``page_size`` / ``timeout``。
+    ``host`` / ``page_size`` / ``timeout`` / ``proxy``。
 
     :return: ``list[CollectItem]``
     """
