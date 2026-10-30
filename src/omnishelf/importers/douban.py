@@ -29,8 +29,8 @@
 ``extra.pub``                 ``extra.pub`` 原样 + 拆出 ``creators``（首段是作者）
 ``extra.publisher``           ``extra.publisher``（图书）
 ``extra.platforms``           ``extra.platform``（只留平台 token，中文类型名丢掉）
-``extra.info``                ``extra.info`` 原样 + 拆出 ``extra.release_date``，
-                              日期之前的部分（平台 + 类型）进 ``tags``
+``extra.info``                拆出 ``extra.release_date``；日期之前的部分
+                              （平台 + 类型）进 ``tags``。原串**不落库**
 其余（``stars`` ``media`` ``page`` ``first_seen`` ``last_seen`` 与顶层元信息）
                               不导入：要么和 rating 重复，要么是抓取工具的记账字段
 ============================  ====================================================
@@ -211,7 +211,6 @@ class DoubanGamesImporter(DoubanImporter):
         "extra.cover_url": ["cover"],
         "extra.marked_date": ["marked_date"],
         "extra.platform": ["extra.platforms"],
-        "extra.info": ["extra.info"],
         "extra.release_date": ["extra.info"],
         "tags": ["extra.info"],
         "external_ids.douban_game": ["subject_id"],

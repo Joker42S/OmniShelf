@@ -116,8 +116,8 @@ def test_games_platform_filter_and_release_date(
 
     one = items["示例游戏 一"]
     assert one.extra["platform"] == ["PC", "PS4"]  # 中文类型名（动作/角色扮演）被丢掉
-    assert one.extra["info"].endswith("2013-10-28")  # 原串保留
     assert one.extra["release_date"] == "2013-10-28"
+    assert "info" not in one.extra  # 原始串只用来拆字段/标签，不再落库
     assert one.rating == 10.0 and one.status == "done"
     assert one.creators == []  # 豆瓣这份导出没有开发商信息，不猜
 

@@ -173,7 +173,6 @@ KINDS: dict[str, KindDef] = {
             FieldDef("developer", "开发商", "str"),
             FieldDef("publisher", "发行商", "str"),
             FieldDef("playtime_hours", "游戏时长（小时）", "float"),
-            FieldDef("info", "豆瓣信息串", "str"),
             FieldDef("release_date", "发行日期", "str"),
             FieldDef("marked_date", "豆瓣标记日期", "str"),
             FieldDef("cover_url", "封面地址", "str"),
