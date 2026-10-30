@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -236,3 +237,163 @@ def test_hot_reload_picks_up_edits_without_restart(settings: Settings, client: T
     )
     broken = client.get("/plugins/hot")
     assert broken.status_code == 500 and "写坏了" in broken.text
+
+
+# --------------------------------------------------------------- 网格 / 快速更新
+
+QUICK_PLUGIN = '''
+from omnishelf.plugins.api import Plugin, QuickParam, QuickUpdateResult, quick_params
+
+
+class Quick(Plugin):
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+    def render_page(self, request=None):
+        return "<p>quick</p>"
+
+    @quick_params(
+        QuickParam("token", "访问令牌", required=True),
+        QuickParam("password", "测试口令", secret=True),
+    )
+    def quick_update(self, options=None):
+        options = dict(options or {})
+        summary = "口令收到" if options.get("password") == "synthetic-pass" else "没带口令"
+        summary += f" · 参数 {','.join(sorted(options))}"
+        return QuickUpdateResult(ok=True, summary=summary, details="更新明细")
+'''
+
+ALT_QUICK_PLUGIN = '''
+from omnishelf.plugins.api import Plugin, QuickParam, QuickUpdateResult, quick_params
+
+
+class Alt(Plugin):
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+    @quick_params(QuickParam("keyword", "别名关键字"))
+    def quick_update(self, options=None):
+        keyword = (options or {}).get("keyword") or "—"
+        return QuickUpdateResult(ok=True, summary=f"关键字 {keyword}", details="")
+'''
+
+
+def wait_for_quick(client: TestClient, needle: str = "已结束", timeout: float = 5.0) -> str:
+    deadline = time.monotonic() + timeout
+    html = ""
+    while time.monotonic() < deadline:
+        html = client.get("/plugins/quick-update/status").text
+        if "已结束" in html and needle in html:
+            return html
+        time.sleep(0.02)
+    raise AssertionError(html)
+
+
+def test_plugins_grid_is_default_with_view_switch(settings: Settings, client: TestClient) -> None:
+    write_plugin(settings.plugins_dir, "quick", code=QUICK_PLUGIN, metadata='[plugin]\ntitle = "快插件"\n')
+    write_plugin(settings.plugins_dir, "plain", code=GOOD_PLUGIN, metadata='[plugin]\ntitle = "普通插件"\n')
+
+    grid = client.get("/plugins").text
+    assert 'class="plugin-grid"' in grid
+    assert 'href="/plugins?view=detail"' in grid
+    assert "一键快速更新" in grid
+    assert 'name="quick_plugin" value="quick"' in grid
+    assert 'form="quick-update-form"' in grid
+    assert 'name="quick_plugin" value="plain"' not in grid  # 没实现的插件不给开关注
+    assert 'href="/plugins/quick"' in grid and 'href="/plugins/plain"' in grid  # 打开按钮
+
+    # 参数按插件分开，渲染在各自的卡片里
+    assert 'name="quick_param:quick:token"' in grid
+    assert 'name="quick_param:quick:password"' in grid
+    assert 'type="password"' in grid and "访问令牌" in grid and "测试口令" in grid
+    assert 'class="plugin-quick-required"' in grid
+    assert "quick_param:plain:" not in grid
+    assert 'name="password"' not in grid  # 旧的共享口令框已经去掉
+
+    detail = client.get("/plugins?view=detail").text
+    assert 'class="plugin-card"' in detail
+    assert "一键快速更新" not in detail
+    assert 'href="/plugins?view=grid"' in detail
+
+
+def test_quick_update_runs_selected_plugins_with_own_params(
+    settings: Settings, client: TestClient
+) -> None:
+    write_plugin(settings.plugins_dir, "quick", code=QUICK_PLUGIN, metadata='[plugin]\ntitle = "快插件"\n')
+    write_plugin(settings.plugins_dir, "alt", code=ALT_QUICK_PLUGIN, metadata='[plugin]\ntitle = "另一个快插件"\n')
+    write_plugin(settings.plugins_dir, "plain", code=GOOD_PLUGIN, metadata='[plugin]\ntitle = "普通插件"\n')
+    client.get("/plugins")
+
+    response = client.post(
+        "/plugins/quick-update",
+        headers={"HX-Request": "true"},
+        data={
+            "quick_plugin": ["quick", "alt"],
+            "quick_param:quick:token": "t-alpha",
+            "quick_param:quick:password": "synthetic-pass",
+            "quick_param:quick:keyword": "不该收到",  # quick 没声明，忽略
+            "quick_param:alt:keyword": "漫画",
+            "quick_param:plain:token": "不该收到",    # 没选中的插件，忽略
+        },
+    )
+    assert response.status_code == 200
+    html = wait_for_quick(client, "关键字 漫画")
+    assert "快插件" in html and "口令收到" in html
+    assert "参数 password,token" in html  # 只收到自己声明过的参数
+    assert "关键字 漫画" in html and "另一个快插件" in html
+    assert "普通插件" not in html  # 只跑勾选的那个
+    assert "synthetic-pass" not in html  # 口令不回显
+    assert "不该收到" not in html
+
+
+def test_quick_update_requires_required_params(settings: Settings, client: TestClient) -> None:
+    write_plugin(settings.plugins_dir, "quick", code=QUICK_PLUGIN, metadata='[plugin]\ntitle = "快插件"\n')
+    client.get("/plugins")
+
+    client.post(
+        "/plugins/quick-update",
+        headers={"HX-Request": "true"},
+        data={"quick_plugin": "quick", "quick_param:quick:password": "synthetic-pass"},
+    )
+    html = wait_for_quick(client, "缺少必填参数")
+    assert "失败" in html and "token" in html
+    assert "synthetic-pass" not in html
+
+
+def test_quick_update_isolates_failures(settings: Settings, client: TestClient) -> None:
+    boom = QUICK_PLUGIN.replace(
+        'return QuickUpdateResult(ok=True, summary=summary, details="更新明细")',
+        'raise RuntimeError("更新炸了")',
+    )
+    write_plugin(settings.plugins_dir, "quick", code=QUICK_PLUGIN, metadata='[plugin]\ntitle = "快插件"\n')
+    write_plugin(settings.plugins_dir, "boom", code=boom, metadata='[plugin]\ntitle = "坏插件"\n')
+    client.get("/plugins")
+
+    client.post(
+        "/plugins/quick-update",
+        headers={"HX-Request": "true"},
+        data={
+            "quick_plugin": ["quick", "boom"],
+            "quick_param:quick:token": "t-alpha",
+            "quick_param:boom:token": "t-alpha",
+        },
+    )
+    html = wait_for_quick(client, "更新炸了")
+    assert "快插件" in html and "完成" in html
+    assert "坏插件" in html and "失败" in html
+
+
+def test_quick_update_without_selection_says_so(settings: Settings, client: TestClient) -> None:
+    write_plugin(settings.plugins_dir, "quick", code=QUICK_PLUGIN)
+    client.get("/plugins")
+    response = client.post(
+        "/plugins/quick-update", headers={"HX-Request": "true"}, data={"quick_param:quick:token": "x"}
+    )
+    assert "没有选中任何插件" in response.text
+    assert "没有选中任何插件" in client.get("/plugins/quick-update/status").text

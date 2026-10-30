@@ -448,6 +448,128 @@ def test_page_for_unknown_plugin(manager: PluginManager) -> None:
         manager.page("nope", None)
 
 
+# --------------------------------------------------------------- 快速更新
+
+QUICK_PLUGIN = '''
+from omnishelf.plugins.api import Plugin, QuickParam, QuickUpdateResult, quick_params
+
+
+class Quick(Plugin):
+    seen = None
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+    @quick_params(
+        QuickParam("token", "访问令牌", required=True),
+        QuickParam("password", "口令", secret=True),
+    )
+    def quick_update(self, options=None):
+        type(self).seen = dict(options or {})
+        return QuickUpdateResult(ok=True, summary="快速更新好了", details="明细一\\n明细二")
+'''
+
+
+def test_quick_update_is_opt_in_and_receives_options(
+    plugins_root: Path, manager: PluginManager
+) -> None:
+    write_plugin(plugins_root, "quick", code=QUICK_PLUGIN, metadata="[plugin]\n")
+    write_plugin(plugins_root, "plain", code=SIMPLE_PLUGIN, metadata="[plugin]\n")
+    manager.load_all()
+
+    quick = manager.status("quick")
+    plain = manager.status("plain")
+    assert quick.supports_quick_update is True
+    assert plain.supports_quick_update is False
+    assert quick.as_dict()["supports_quick_update"] is True
+    assert plain.quick_params == () and plain.as_dict()["quick_params"] == []
+    assert [param.name for param in quick.quick_params] == ["token", "password"]
+    assert [param.required for param in quick.quick_params] == [True, False]
+    assert [param.secret for param in quick.quick_params] == [False, True]
+    assert quick.as_dict()["quick_params"][0] == {
+        "name": "token", "description": "访问令牌", "required": True, "secret": False,
+    }
+
+    result = manager.quick_update("quick", {"token": "t0k", "password": "synthetic-pass"})
+    assert result.ok is True
+    assert result.summary == "快速更新好了" and result.details == "明细一\n明细二"
+    assert manager.get("quick").instance.seen == {"token": "t0k", "password": "synthetic-pass"}  # type: ignore[union-attr]
+
+    with pytest.raises(PluginError) as excinfo:
+        manager.quick_update("plain")
+    assert "没有实现快速更新" in str(excinfo.value)
+
+
+def test_quick_update_requires_declared_required_params(
+    plugins_root: Path, manager: PluginManager
+) -> None:
+    write_plugin(plugins_root, "quick", code=QUICK_PLUGIN, metadata="[plugin]\n")
+    manager.load_all()
+
+    with pytest.raises(PluginError) as excinfo:
+        manager.quick_update("quick", {"password": "synthetic-pass"})
+    assert "缺少必填参数" in str(excinfo.value) and "token" in str(excinfo.value)
+    assert manager.get("quick").instance.seen is None  # type: ignore[union-attr]
+
+
+def test_quick_params_validation() -> None:
+    from omnishelf.plugins.api import QuickParam, quick_params
+
+    def target(options=None):
+        pass
+
+    with pytest.raises(ValueError):
+        quick_params(QuickParam("  "))
+
+    with pytest.raises(ValueError):
+        quick_params(QuickParam("token"), QuickParam(" token "))(target)
+
+    decorated = quick_params(QuickParam(" token ", " 令牌 "))(target)
+    decorated = quick_params(QuickParam("password", secret=True))(decorated)
+    params = getattr(decorated, "__plugin_quick_params__")
+    assert [param.name for param in params] == ["token", "password"]
+    assert params[0].description == "令牌" and params[1].secret is True
+
+
+def test_quick_update_errors_are_isolated(plugins_root: Path, manager: PluginManager) -> None:
+    boom = QUICK_PLUGIN.replace(
+        'return QuickUpdateResult(ok=True, summary="快速更新好了", details="明细一\\n明细二")',
+        'raise RuntimeError("更新炸了")',
+    )
+    bad = QUICK_PLUGIN.replace(
+        'return QuickUpdateResult(ok=True, summary="快速更新好了", details="明细一\\n明细二")',
+        'return "不是结果对象"',
+    )
+    write_plugin(plugins_root, "boom", code=boom, metadata="[plugin]\n")
+    write_plugin(plugins_root, "bad", code=bad, metadata="[plugin]\n")
+    manager.load_all()
+
+    with pytest.raises(PluginError) as excinfo:
+        manager.quick_update("boom", {"token": "t0k"})
+    assert "quick_update() 出错" in str(excinfo.value) and "更新炸了" in str(excinfo.value)
+
+    with pytest.raises(PluginError) as excinfo:
+        manager.quick_update("bad", {"token": "t0k"})
+    assert "应返回 QuickUpdateResult" in str(excinfo.value)
+
+    with pytest.raises(PluginError):
+        manager.quick_update("没有这个")
+
+
+def test_quick_update_writes_host_log_lines(
+    plugins_root: Path, logged_manager: PluginManager, settings: Settings
+) -> None:
+    write_plugin(plugins_root, "quick", code=QUICK_PLUGIN, metadata="[plugin]\n")
+    logged_manager.load_all()
+    logged_manager.quick_update("quick", {"token": "t0k", "password": "不能进日志的口令"})
+    text = (settings.plugin_logs_dir / "quick.log").read_text(encoding="utf-8")
+    assert "开始快速更新" in text and "快速更新完成：快速更新好了" in text
+    assert "不能进日志的口令" not in text
+
+
 def test_context_helpers(plugins_root: Path, manager: PluginManager) -> None:
     code = '''
 from omnishelf.plugins.api import Plugin

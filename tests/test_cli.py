@@ -47,6 +47,12 @@ def test_cli_full_chain(cli: Callable[..., object], fixtures_dir: Path, tmp_path
     result = cli("list", "--tag", "sci-fi", "--json")
     assert len(_json(result)) == 3  # Blade Runner / Arrival / Dune
 
+    result = cli("list", "--source", "tmdb", "--json")
+    assert len(_json(result)) == 3  # 只有 3 条影视带 tmdb_id
+
+    result = cli("list", "--no-source", "--json")
+    assert len(_json(result)) == 7  # fixture 里没带任何外部 ID 的影视/图书
+
     result = cli("list", "--title-prefix", "bla")
     assert "Blade Runner" in result.output  # type: ignore[attr-defined]
 

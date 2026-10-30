@@ -45,6 +45,29 @@ def test_rule1_external_id_hit_updates(session: Session, import_records) -> None
     assert items[0].status == "done"
 
 
+def test_rule1_reimport_without_creators_keeps_them(
+    session: Session, import_records
+) -> None:
+    """来源不带 creators 时（豆瓣影视/游戏），空列表不算「新值」，不能清空已有创作者。"""
+    import_records(
+        [
+            {
+                "kind": "movie",
+                "title": "Arrival",
+                "year": 2016,
+                "creators": ["Denis Villeneuve"],
+                "external_ids": [("douban_movie", "42")],
+            }
+        ]
+    )
+    second = import_records(
+        [{"kind": "movie", "title": "Arrival", "year": 2016, "external_ids": [("douban_movie", "42")]}]
+    )
+    assert second.unchanged == 1
+    item = repo.get_item_by_external_id(session, "douban_movie", "42")
+    assert item is not None and item.creators == ["Denis Villeneuve"]
+
+
 def test_rule2_title_year_merges_and_keeps_data(session: Session, import_records) -> None:
     import_records(
         [

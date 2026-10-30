@@ -1,0 +1,56 @@
+<div id="quick-update-status">
+  {% if job %}
+  <article class="plugin-quick-status">
+    <header>
+      <strong>快速更新</strong>
+      {% if job["running"] %}
+        <span class="badge">进行中</span>
+      {% else %}
+        <span class="badge ok">已结束</span>
+      {% endif %}
+      <small>{{ job["started_at"] }}{% if job["finished_at"] %} → {{ job["finished_at"] }}{% endif %}</small>
+    </header>
+
+    {% if job["error"] %}<p class="alert-error">{{ job["error"] }}</p>{% endif %}
+
+    {% if job["items"] %}
+    <ul class="plugin-quick-results">
+      {% for item in job["items"] %}
+      <li>
+        <div class="plugin-quick-result-head">
+          <strong>{{ item["title"] }}</strong>
+          <code>{{ item["id"] }}</code>
+          {% if item["state"] == 'done' %}
+            <span class="badge ok">完成</span>
+          {% elif item["state"] == 'incomplete' %}
+            <span class="badge warn">未抓全</span>
+          {% elif item["state"] == 'failed' %}
+            <span class="badge err">失败</span>
+          {% elif item["state"] == 'running' %}
+            <span class="badge">进行中</span>
+          {% else %}
+            <span class="badge">等待</span>
+          {% endif %}
+        </div>
+        {% if item["summary"] %}<div class="plugin-quick-summary">{{ item["summary"] }}</div>{% endif %}
+        {% if item["details"] %}
+          <details>
+            <summary>明细</summary>
+            <pre class="plugin-trace">{{ item["details"] }}</pre>
+          </details>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if job["running"] %}
+    <div class="plugin-quick-poll"
+         hx-get="/plugins/quick-update/status"
+         hx-trigger="every {{ poll_seconds }}s"
+         hx-target="#quick-update-status"
+         hx-swap="outerHTML"></div>
+    {% endif %}
+  </article>
+  {% endif %}
+</div>

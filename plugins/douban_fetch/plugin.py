@@ -71,9 +71,9 @@ import urllib.request
 import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
-from omnishelf.plugins.api import Plugin, cmd
+from omnishelf.plugins.api import Plugin, QuickUpdateResult, cmd
 
 PAGE_SIZE = 15
 
@@ -101,6 +101,9 @@ STAR_RE = {
     "book": re.compile(r"rating(\d)-t"),
     "game": re.compile(r"allstar(\d{2})"),
 }
+
+#: 豆瓣游戏串用带空格的斜杠分段；类型名内部的斜杠（乱斗/清版）两侧没有空格
+GAME_LABEL_SEP = re.compile(r"\s+/\s+")
 
 
 # --------------------------------------------------------------------------
@@ -576,7 +579,8 @@ def parse_game_page(page_html: str) -> tuple[list[Item], int | None, int | None]
         year = ""
         if info:
             head = re.split(r"(\d{4}-\d{2}-\d{2})", info)[0]
-            platforms = [part.strip() for part in head.split("/") if part.strip()]
+            parts = GAME_LABEL_SEP.split(head) if GAME_LABEL_SEP.search(head) else head.split("/")
+            platforms = [part.strip() for part in parts if part.strip()]
             found = re.search(r"(\d{4})-\d{2}-\d{2}", info)
             year = found.group(1) if found else ""
         if not (title or url):
@@ -891,6 +895,25 @@ def snapshot_is_complete(meta: Mapping[str, Any]) -> bool:
         return int(highest) >= int(total)
     except (TypeError, ValueError):
         return False
+
+
+def inherit_snapshot_coverage(summary: Summary, previous_meta: Mapping[str, Any]) -> None:
+    """把上一份快照的覆盖页数继承到这一趟的汇总里。
+
+    增量早停时这一趟可能只翻了第 1 页，但按 id 合并后的快照仍然覆盖着上一轮
+    抓全的页。不继承的话会写成 ``highest_page=1``，下一轮被判成「没抓全」，
+    ``early_stop`` 失效，于是「增量 → 下次又全量」来回跳。
+    """
+    def _as_int(value: Any) -> int:
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    summary.highest_page = max(summary.highest_page, _as_int(previous_meta.get("highest_page")))
+    previous_total = _as_int(previous_meta.get("total_pages"))
+    if previous_total:
+        summary.total_pages = max(summary.total_pages or 0, previous_total)
 
 
 def snapshot_index(data_dir: Path) -> list[dict[str, Any]]:
@@ -1333,6 +1356,7 @@ def _fetch_worker(
             progress=_logging_progress(_progress_sink(job_id), ctx.log),
             cookie=cookie,
         )
+        inherit_snapshot_coverage(summary, previous_meta)
         import_path, detail_path = save_snapshot(ctx.data_dir, summary)
         report = summary.summary_dict()
         report.update(
@@ -1563,6 +1587,7 @@ class DoubanFetch(Plugin):
             progress=_logging_progress(None, self.log),
             cookie=chosen_cookie,
         )
+        inherit_snapshot_coverage(summary, previous_meta)
         if pasted:
             _remember_cookie(self.ctx, chosen_cookie, config)
         import_path, _detail = save_snapshot(self.data_dir, summary)
@@ -1597,3 +1622,41 @@ class DoubanFetch(Plugin):
         lines.append(f"            importer {report['importer']} · 导入日志 #{report['log_id']}"
                      + (f" · 已存档 {report['archive_path']}" if report.get("archive_path") else ""))
         return "\n".join(lines)
+
+    def quick_update(self, options: Mapping[str, Any] | None = None) -> QuickUpdateResult:
+        """用当前配置把 3 个媒体 × 3 张列表都增量跑一遍并导入。
+
+        和 ``scripts/sync-all.sh`` 里的豆瓣那一段同口径：9 张列表逐个跑，一张失败
+        不影响后面的；Cookie、用户 ID、页码范围、间隔都取配置里的。
+        """
+        config = effective_config(self.ctx)
+        if not any(user_for(self.ctx, config, media) for media in MEDIA_CHOICES):
+            return QuickUpdateResult(
+                ok=False,
+                summary="还没配豆瓣用户 ID：先在插件页面保存，再点快速更新",
+            )
+        failed: list[str] = []
+        incomplete: list[str] = []
+        blocks: list[str] = []
+        for media in MEDIA_CHOICES:
+            for status in STATUS_CHOICES:
+                label = f"{MEDIA_CN[media]} / {STATUS_CN[media][status]}"
+                try:
+                    text = self.fetch_import(media=media, status=status, incremental=True)
+                except Exception as exc:
+                    failed.append(label)
+                    blocks.append(f"【{label}】失败：{type(exc).__name__}: {exc}")
+                    continue
+                blocks.append(f"【{label}】\n{text}")
+                if "  导入      失败" in text:
+                    failed.append(f"{label}（导入失败）")
+                elif any(mark in text for mark in ("请求失败", "反爬拦截", "页面没有列表结构")):
+                    incomplete.append(label)
+        total = len(MEDIA_CHOICES) * len(STATUS_CHOICES)
+        ok = not failed and not incomplete
+        summary = f"跑了 {total} 张列表：完成 {total - len(failed) - len(incomplete)}"
+        if incomplete:
+            summary += f" · 未抓全 {len(incomplete)}（{'、'.join(incomplete)}）"
+        if failed:
+            summary += f" · 失败 {len(failed)}（{'、'.join(failed)}）"
+        return QuickUpdateResult(ok=ok, summary=summary, details="\n\n".join(blocks))

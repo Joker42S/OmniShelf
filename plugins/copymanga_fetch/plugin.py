@@ -80,7 +80,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
-from omnishelf.plugins.api import Plugin, cmd
+from omnishelf.plugins.api import Plugin, QuickParam, QuickUpdateResult, cmd, quick_params
 
 # 抓取逻辑在随插件分发的 copymanga 包里（上游 v2.0.0 + VENDOR.md 里记档的代理补丁）。
 # 入口文件是被 exec 的，所以先把插件目录补进 sys.path，再 import 那个包。
@@ -1263,4 +1263,41 @@ class CopymangaFetch(Plugin):
             self.ctx, mode=mode, host=host, token=token, username=username, password=password,
             page_size=page_size, delay=delay, timeout=timeout,
             include_raw=include_raw, proxy=proxy, dry_run=dry_run,
+        )
+
+    @quick_params(
+        QuickParam(
+            "password",
+            "漫画口令：配置里没有 token / 用户名时用它登录；不落盘、不进日志",
+            secret=True,
+        )
+    )
+    def quick_update(self, options: Mapping[str, Any] | None = None) -> QuickUpdateResult:
+        """用当前配置跑一次增量同步 + 导入（插件列表页「一键快速更新」）。
+
+        账号/口令都取配置与这次页面表单里的口令；参数、代理、每页条数同样用配置里的。
+        """
+        password = str((options or {}).get("password") or "")
+        config = effective_config(self.ctx)
+        if not (config["token"] or config["username"]) and not password:
+            return QuickUpdateResult(ok=False, summary=AUTH_REQUIRED)
+        try:
+            text = run_cli_sync(self.ctx, mode="incremental", password=password)
+        except ValueError as exc:
+            return QuickUpdateResult(ok=False, summary=str(exc))
+        meta = load_meta(self.ctx.data_dir)
+        import_failed = "  导入      失败" in text
+        summary = (
+            f"新增 {meta.get('added', 0)} · 更新 {meta.get('updated', 0)} · "
+            f"未变化 {meta.get('unchanged', 0)} · 取消收藏 {meta.get('removed', 0)}"
+            f"（{meta.get('requests', 0)} 次请求 · {meta.get('stop_reason') or '—'}）"
+        )
+        if import_failed:
+            summary = "同步完成，但导入失败（快照还在，可到上传页手动导入）"
+        if meta.get("stop_reason") == "ordering-broken":
+            summary += "；排序校验失败，已自动改跑全量"
+        return QuickUpdateResult(
+            ok=not import_failed and bool(meta.get("stop_reason")),
+            summary=summary,
+            details=text,
         )

@@ -1330,3 +1330,79 @@ def test_cli_command_needs_a_credential(manager: PluginManager) -> None:
     manager.load_all()
     with pytest.raises(PluginError):
         manager.run_command(PLUGIN_ID, "fetch_import", [])
+
+
+# --------------------------------------------------------------------- 快速更新
+
+
+def test_quick_update_runs_incremental_and_imports(
+    manager: PluginManager,
+    settings_with_repo_plugins: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    session: Session,
+) -> None:
+    """列表页的一键更新：用配置里的令牌跑增量 + 导入，配置里原本是 full 也按增量跑。"""
+    config_file(settings_with_repo_plugins).parent.mkdir(parents=True, exist_ok=True)
+    config_file(settings_with_repo_plugins).write_text(
+        f'token = "{TOKEN}"\nmode = "full"\npage_size = 3\ndelay = 0\ntimeout = 10\n',
+        encoding="utf-8",
+    )
+    install_fake_network(monkeypatch)
+    manager.load_all()
+
+    result = manager.quick_update(PLUGIN_ID)
+
+    assert result.ok
+    assert "新增 6" in result.summary
+    assert "同步完成" in result.details and "导入      共 6 条" in result.details
+    assert 'mode = "incremental"' in config_file(settings_with_repo_plugins).read_text(
+        encoding="utf-8"
+    )
+    session.expire_all()
+    assert len(repo.list_items(session, kind="manga")) == 6
+
+    # 第二次是真正的增量：第一页全是已知条目，碰到水位线就停（导入那边六条都未变化）
+    again = manager.quick_update(PLUGIN_ID)
+    assert again.ok and "watermark-reached" in again.summary
+    assert "未变化 6" in again.details
+
+
+def test_quick_update_can_log_in_with_the_page_password(
+    manager: PluginManager,
+    settings_with_repo_plugins: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    session: Session,
+) -> None:
+    """配置里只有账号时，用页面上那次输入的密码登录；换到的令牌留下，密码不落盘。"""
+    config_file(settings_with_repo_plugins).parent.mkdir(parents=True, exist_ok=True)
+    config_file(settings_with_repo_plugins).write_text(
+        f'username = "{USER}"\npage_size = 3\ndelay = 0\ntimeout = 10\n',
+        encoding="utf-8",
+    )
+    log: list[dict[str, str]] = []
+    install_fake_network(
+        monkeypatch, valid_token=NEW_TOKEN, login_token=NEW_TOKEN, log=log
+    )
+    manager.load_all()
+
+    result = manager.quick_update(PLUGIN_ID, {"password": PASSWORD})
+
+    assert result.ok
+    assert PASSWORD not in result.details
+    assert any(row["method"] == "POST" for row in log)   # 走登录换了令牌
+    text = config_file(settings_with_repo_plugins).read_text(encoding="utf-8")
+    assert f'token = "{NEW_TOKEN}"' in text
+    assert PASSWORD not in text
+
+
+def test_quick_update_without_credentials_says_what_is_missing(
+    manager: PluginManager, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """没令牌也没账号时直接给提示，别先去撞一遍接口。"""
+    calls = install_fake_network(monkeypatch)
+    manager.load_all()
+
+    result = manager.quick_update(PLUGIN_ID)
+
+    assert not result.ok and "要先认证" in result.summary
+    assert calls == []

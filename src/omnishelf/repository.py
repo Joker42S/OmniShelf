@@ -295,6 +295,8 @@ def _item_filters(
     rating_max: float | None = None,
     created_from: str | None = None,
     created_to: str | None = None,
+    source: str | None = None,
+    source_missing: bool = False,
     tags_include: Sequence[str] = (),
     tags_exclude: Sequence[str] = (),
     include_deleted: bool = False,
@@ -308,6 +310,8 @@ def _item_filters(
     * ``creator`` —— 创作者**包含**（点击列表里的创作者名就能筛）；
     * ``rating_min``/``rating_max`` —— 评分区间，未评分（NULL）天然不匹配任何区间；
     * ``created_from``/``created_to`` —— 入库时间区间（UTC ISO8601 字符串，可直接比大小）；
+    * ``source`` —— 必须挂着这个来源的 external_id；
+    * ``source_missing`` —— 只看没有任何 external_id 的条目（手工录入）；
     * ``tags_include`` —— 必须**同时**带这些 tag（AND，每个一个 EXISTS）；
     * ``tags_exclude`` —— 必须不带这些 tag 中的任何一个（AND，每个一个 NOT EXISTS）。
     """
@@ -317,6 +321,18 @@ def _item_filters(
         stmt = stmt.where(Item.kind == kind)
     if status:
         stmt = stmt.where(Item.status == status)
+    if source:
+        stmt = stmt.where(
+            select(ExternalId.item_id)
+            .where(col(ExternalId.item_id) == col(Item.id), ExternalId.source == source)
+            .exists()
+        )
+    elif source_missing:
+        stmt = stmt.where(
+            ~select(ExternalId.item_id)
+            .where(col(ExternalId.item_id) == col(Item.id))
+            .exists()
+        )
     if tag:
         stmt = stmt.join(Tag, col(Tag.item_id) == col(Item.id)).where(Tag.tag == tag)
     if title_prefix:
@@ -392,6 +408,8 @@ def list_items(
     rating_max: float | None = None,
     created_from: str | None = None,
     created_to: str | None = None,
+    source: str | None = None,
+    source_missing: bool = False,
     tags_include: Sequence[str] = (),
     tags_exclude: Sequence[str] = (),
     include_deleted: bool = False,
@@ -416,6 +434,8 @@ def list_items(
         rating_max=rating_max,
         created_from=created_from,
         created_to=created_to,
+        source=source,
+        source_missing=source_missing,
         tags_include=tags_include,
         tags_exclude=tags_exclude,
         include_deleted=include_deleted,
@@ -441,6 +461,8 @@ def count_items(
     rating_max: float | None = None,
     created_from: str | None = None,
     created_to: str | None = None,
+    source: str | None = None,
+    source_missing: bool = False,
     tags_include: Sequence[str] = (),
     tags_exclude: Sequence[str] = (),
     include_deleted: bool = False,
@@ -458,6 +480,8 @@ def count_items(
         rating_max=rating_max,
         created_from=created_from,
         created_to=created_to,
+        source=source,
+        source_missing=source_missing,
         tags_include=tags_include,
         tags_exclude=tags_exclude,
         include_deleted=include_deleted,
@@ -578,6 +602,12 @@ def list_external_ids(session: Session, item_id: str) -> list[ExternalId]:
         .order_by(col(ExternalId.source), col(ExternalId.external_id))
     )
     return list(session.exec(stmt).all())
+
+
+def all_sources(session: Session) -> list[str]:
+    """库里出现过的全部来源（``external_ids.source``），给列表页的来源下拉用。"""
+    stmt = select(ExternalId.source).distinct().order_by(col(ExternalId.source))
+    return [str(value) for value in session.exec(stmt).all()]
 
 
 def get_item_by_external_id(session: Session, source: str, external_id: str) -> Item | None:

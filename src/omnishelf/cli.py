@@ -252,6 +252,8 @@ def list_cmd(
     rating_max: Optional[float] = typer.Option(None, "--rating-max", help="评分上限 0-10"),
     created_from: Optional[str] = typer.Option(None, "--created-from", help="入库日期起 YYYY-MM-DD（本地日）"),
     created_to: Optional[str] = typer.Option(None, "--created-to", help="入库日期止 YYYY-MM-DD（本地日）"),
+    source: Optional[str] = typer.Option(None, "--source", help="只看某个来源（external_ids.source，如 picamanga）"),
+    no_source: bool = typer.Option(False, "--no-source", help="只看没有任何外部 ID 的条目（手工录入）"),
     with_tag: list[str] = typer.Option([], "--with-tag", help="必须带的 tag（可重复，AND）"),
     without_tag: list[str] = typer.Option([], "--without-tag", help="必须不带的 tag（可重复，AND）"),
     sort: Optional[str] = typer.Option(
@@ -276,6 +278,7 @@ def list_cmd(
             rating_max=rating_max,
             created_from=created_from,
             created_to=created_to,
+            source=filters_service.NO_SOURCE if no_source else source,
             tags_include=with_tag,
             tags_exclude=without_tag,
             sort=sort_key,

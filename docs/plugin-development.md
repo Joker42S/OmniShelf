@@ -112,6 +112,7 @@ class MyPlugin(Plugin):
 | `stop()` | **是**（抽象方法） | 卸载 / 重载前 / 进程退出时 | 释放资源、做收尾 |
 | `render_page(request)` | 否 | 打开 `/plugins/<id>` 时 | 返回 HTML 片段或整页；不实现就没有页面 |
 | `handle_post(request, form)` | 否 | 插件页面里提交表单时（POST `/plugins/<id>`） | 返回 HTML 直接回显；返回 `None` 跳回页面 |
+| `quick_update(options)` | 否 | 插件列表页点「一键快速更新」时 | 用**已保存的配置**跑一次增量更新 + 导入；需要的参数用 `@quick_params` 声明；返回 `QuickUpdateResult`；不实现就不出现在勾选栏里 |
 
 * `start`/`stop` 是**抽象方法**：没实现的话插件实例化就会失败，列表页会告诉你缺哪个方法
   （不会再出现「跑起来才发现少了一个函数」）。
@@ -120,6 +121,64 @@ class MyPlugin(Plugin):
 * 子类如果自定义 `__init__`，**必须先调用** `super().__init__(ctx)`。
 * 一个入口文件里只有一个 `Plugin` 子类时，宿主自动用它；有多个就必须在 metadata 里写明：
   `entry = "plugin.py:MyPlugin"`。
+
+### 2.1 快速增量更新（`quick_update`）
+
+插件很多时，一个个打开页面点同步很麻烦。实现 `quick_update()` 后，插件列表页的网格卡片会多出一个
+「快速更新」开关；点页面上方的「一键快速更新」，宿主就会对勾选的插件依次调用这个方法。
+**用当前保存的配置**跑一次增量更新 + 导入，不要弹窗问参数。
+
+如果某次运行需要用户临时提供参数，用 `@quick_params` 在方法上声明。声明了什么，宿主就会把对应的
+输入框放进**这个插件自己的**网格卡片里；不同插件的参数互不影响。
+
+```python
+from omnishelf.plugins.api import Plugin, QuickParam, QuickUpdateResult, quick_params
+
+
+class MyFeed(Plugin):
+    def start(self) -> None: ...
+    def stop(self) -> None: ...
+
+    @quick_params(
+        QuickParam("token", "访问令牌；配置里没存时必填", required=True),
+        QuickParam("password", "账号口令", secret=True),   # 页面上是密码框
+    )
+    def quick_update(self, options: dict) -> QuickUpdateResult:
+        token = str(options.get("token") or "")
+        password = str(options.get("password") or "")
+        try:
+            text = self.fetch_import(mode="incremental", token=token, password=password)
+        except ValueError as exc:
+            return QuickUpdateResult(ok=False, summary=str(exc))
+        return QuickUpdateResult(ok=True, summary="新增 3 · 更新 1", details=text)
+```
+
+`QuickParam` 的字段：
+
+| 字段 | 默认 | 说明 |
+| --- | --- | --- |
+| `name` | 必填 | 参数名，也是 `options` 里的 key 和表单字段名的一部分 |
+| `description` | `""` | 一句话说明，显示在输入框下面 |
+| `required` | `False` | 勾选了该插件时，没填这一项会在调用前被宿主拦下（算这个插件失败） |
+| `secret` | `False` | 渲染成密码框；值不落盘、不进日志、不回显 |
+
+* **有没有实现是自动判断的**：没覆盖 `quick_update` 的插件不会出现在勾选栏里；
+  基类的默认实现直接抛 `NotImplementedError`，不会被误当成「支持」。
+* **参数按插件隔离**：表单里只接受该插件用 `@quick_params` 声明过的名字，没声明的字段会被忽略；
+  页面上没填的空值不会传给插件（插件可以回落到已保存的配置）。
+* **必填只对勾选的插件生效**：没勾的插件不填参数也不会挡住提交。
+* **敏感值只在内存里用**：`secret=True` 的口令/令牌不写配置、不进日志、不回显；
+  结果里的 `summary` / `details` 同样不能带这些值。
+* **增量优先**：能增量的来源固定传 `incremental`（不要沿用配置里可能残留的 `full`）；
+  像 Steam 这种没有增量模式的，就整份重抓。
+* 返回值是 `QuickUpdateResult(ok, summary, details)`：`ok=True` 显示「完成」，
+  `ok=False` 显示「未抓全」（比如请求失败、只抓了一部分）。`summary` 是一行给人看的结论，
+  `details` 是完整报告（页面里折叠在「明细」下）。
+* **一个插件失败不影响其它插件**：`quick_update` 里抛异常会被宿主兜住并记成这个插件的失败；
+  多来源的插件（如 `douban_fetch` 的 3 媒体 × 3 列表）最好自己在内部逐个来源兜底，
+  把哪几张没跑成写进 `summary`。
+* 整批任务在宿主后台线程里顺序跑，页面每 2 秒轮询一次状态；所以这里**同步**把活干完即可，
+  不要再起一层后台线程。
 
 ## 3. `ctx` 给你什么
 

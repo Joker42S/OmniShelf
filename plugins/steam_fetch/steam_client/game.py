@@ -9,13 +9,18 @@
 
 商店信息**不能批量取**：``appdetails`` 的逗号多 appid 写法现在会被 Steam 直接回
 HTTP 400（2026-10-18 实测：``appids=730,570`` → 400，``appids=730`` → 200），
-所以这里按 appid 单条请求，靠**并发（≤8 路）+ 网络熔断**压时间：
-一次超时/断网之后，本次排队的其余 id 直接留空，不再一个个去撞 4 次超时。
+所以这里按 appid 单条请求，靠**并发（≤8 路）+ 网络熔断**压时间。
+
+熔断按**连续失败**判定（成功一次就清零）：偶发一两个超时只影响那一条，不会让后面
+几百个 id 集体留空（2026-10-30 愿望单尾部 100 多条全变数字标题就是这么来的）。
+真熔断或单条网络失败后，隔一小会儿用低并发**补跑（最多两轮）**——链路只是抖了一下
+就能把名字/封面捞回来，链路真断了也只会再撞有限的几次墙。
 """
 
 from __future__ import annotations
 
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Iterable
@@ -26,6 +31,7 @@ from .errors import (
     SteamDataUnavailableError,
     SteamError,
     SteamNetworkError,
+    SteamRateLimitError,
 )
 from .models import AppDetail, OwnedGame
 from .transport import STORE_BASE, SteamWebAPI, require_steamid64, unwrap_response
@@ -34,6 +40,40 @@ __all__ = ["SteamGameClient"]
 
 #: 并发补全的线程上限
 _MAX_ENRICH_WORKERS = 8
+#: 连续这么多次网络失败才认定链路断了（单次抖动不该连坐后面的 id）
+_BREAKER_STREAK = 5
+#: 熔断/单条失败后隔多久补跑一轮（秒）
+_RECOVERY_PAUSE = 2.0
+#: 补跑用的低并发：链路刚抖过，别再一股脑挤上去
+_RECOVERY_WORKERS = 4
+#: 最多补跑几轮：链路抖一下通常一轮就够，抖得久一点给第二轮
+_RECOVERY_ROUNDS = 2
+
+
+class _CircuitBreaker:
+    """连续 N 次网络失败后熔断；任何一次成功都把连续计数清零。"""
+
+    def __init__(self, limit: int) -> None:
+        self.limit = max(1, int(limit))
+        self._lock = threading.Lock()
+        self._streak = 0
+        self._tripped = threading.Event()
+
+    @property
+    def tripped(self) -> bool:
+        return self._tripped.is_set()
+
+    def record_success(self) -> None:
+        with self._lock:
+            self._streak = 0
+
+    def record_failure(self) -> bool:
+        """记一次网络失败，返回熔断是否已经打开。"""
+        with self._lock:
+            self._streak += 1
+            if self._streak >= self.limit:
+                self._tripped.set()
+            return self._tripped.is_set()
 
 
 def _payload_from_entry(appid: int, entry: Any) -> dict[str, Any] | None:
@@ -76,6 +116,8 @@ class SteamGameClient:
         self.api_key = str(api_key or "")
         self.cache = FileCache(cache_path)
         self.app_ttl = int(app_ttl)
+        #: 熔断/单条失败后补跑前的等待（秒）；测试里置 0
+        self.recovery_pause = float(_RECOVERY_PAUSE)
 
     # ------------------------------------------------------ 用户数据：直接请求
     def get_owned_games(
@@ -151,18 +193,65 @@ class SteamGameClient:
             pass                        # 缓存写不进去（磁盘满之类）不能把手上这份数据也丢掉
         return _to_detail(payload, appid)
 
+    def _fetch_details(
+        self,
+        ids: list[int],
+        *,
+        force_refresh: bool,
+        cc: str,
+        workers: int,
+        breaker: _CircuitBreaker,
+    ) -> tuple[dict[int, AppDetail | None], list[int], list[int]]:
+        """跑一轮 appdetails，返回 (拿到的结果, 可补跑的 id, 熔断后没问的 id)。"""
+        fetched: dict[int, AppDetail | None] = {}
+        retryable: list[int] = []
+        skipped: list[int] = []
+        lock = threading.Lock()
+
+        def one(appid: int) -> None:
+            if breaker.tripped:
+                with lock:
+                    skipped.append(appid)
+                return
+            try:
+                detail = self.get_app_details(appid, force_refresh=force_refresh, cc=cc)
+            except SteamNetworkError:
+                tripped = breaker.record_failure()
+                with lock:
+                    (skipped if tripped else retryable).append(appid)
+            except SteamRateLimitError:
+                with lock:
+                    retryable.append(appid)     # 限流是暂时的，补跑时再问
+            except SteamError:
+                with lock:
+                    fetched[appid] = None       # 单条 401/400/success=false：不是链路问题
+            else:
+                breaker.record_success()
+                with lock:
+                    fetched[appid] = detail
+
+        with ThreadPoolExecutor(max_workers=min(workers, len(ids))) as pool:
+            list(pool.map(one, ids))
+        return fetched, retryable, skipped
+
     def get_app_details_map(self, appids: Iterable[int], *, force_refresh: bool = False,
-                            cc: str = "US") -> dict[int, AppDetail | None]:
+                            cc: str = "US",
+                            stats: dict[str, int] | None = None) -> dict[int, AppDetail | None]:
         """按 appid 补全（去重、≤8 路并发），命中缓存的不发请求。
+
+        ``stats`` 传一个 dict 进来可拿到本次的分类计数（total/cached/resolved/
+        unavailable/failed），插件据此把「商店说不给」和「网络没取回」分开报告。
 
         失败口径：
 
         * 单条 ``success=false`` 只影响那一条，照旧不写不删缓存；
-        * **网络类失败（超时/断网/5xx 重试用尽）熔断本次剩下的 id**：每个未命中的
-          id 最坏要付 4 次超时，链路断了还硬排 300 个队，抓取就会像 2026-10-18 那次
-          一样挂半小时、结果全是空值。
+        * 网络类失败按**连续**次数熔断：偶发一两次只补跑那几条，不会连坐后面的 id；
+          连续撞墙（链路真断了）才停手，避免每个 id 都付 4 次超时；
+        * 熔断/网络失败/限流的 id 隔一会儿低并发补跑（最多两轮），链路抖一下也能把名字捞回来。
         """
         ids = list(dict.fromkeys(int(value) for value in appids))
+        if stats is not None:
+            stats.clear()
         details: dict[int, AppDetail | None] = {}
         pending: list[int] = []
         for appid in ids:
@@ -171,37 +260,71 @@ class SteamGameClient:
                 details[appid] = _to_detail(cached, appid)
             else:
                 pending.append(appid)
-        if not pending:
-            return details
+        unavailable_ids: set[int] = set()
 
-        down = threading.Event()
+        if pending:
+            fetched, retryable, skipped = self._fetch_details(
+                pending,
+                force_refresh=force_refresh,
+                cc=cc,
+                workers=_MAX_ENRICH_WORKERS,
+                breaker=_CircuitBreaker(_BREAKER_STREAK),
+            )
+            details.update(fetched)
+            unavailable_ids.update(appid for appid, detail in fetched.items() if detail is None)
 
-        def one(appid: int) -> tuple[int, AppDetail | None]:
-            if down.is_set():
-                return appid, None
-            try:
-                return appid, self.get_app_details(appid, force_refresh=force_refresh, cc=cc)
-            except SteamNetworkError:
-                down.set()               # 链路已经不通了，后面排队的别再去撞超时
-                return appid, None
-            except SteamError:
-                return appid, None
+            for _ in range(_RECOVERY_ROUNDS):
+                retry_set = set(retryable) | set(skipped)
+                retry_ids = [appid for appid in pending if appid in retry_set]
+                if not retry_ids:
+                    break
+                if self.recovery_pause:
+                    time.sleep(self.recovery_pause)
+                fetched, retryable, skipped = self._fetch_details(
+                    retry_ids,
+                    force_refresh=force_refresh,
+                    cc=cc,
+                    workers=_RECOVERY_WORKERS,
+                    breaker=_CircuitBreaker(_BREAKER_STREAK),
+                )
+                details.update(fetched)
+                unavailable_ids.update(appid for appid, detail in fetched.items() if detail is None)
 
-        with ThreadPoolExecutor(max_workers=min(_MAX_ENRICH_WORKERS, len(pending))) as pool:
-            for appid, detail in pool.map(one, pending):
-                details[appid] = detail
+        for appid in pending:
+            details.setdefault(appid, None)
+
+        if stats is not None:
+            unresolved = [appid for appid in pending if details[appid] is None]
+            unavailable = sum(1 for appid in unresolved if appid in unavailable_ids)
+            stats.update({
+                "total": len(ids),
+                "cached": len(ids) - len(pending),
+                "resolved": sum(1 for appid in ids if details.get(appid) is not None),
+                "unavailable": unavailable,
+                "failed": len(unresolved) - unavailable,
+            })
         return details
 
     def enrich_apps(
-        self, appids: list[int], *, force_refresh: bool = False, cc: str = "US"
+        self, appids: list[int], *, force_refresh: bool = False, cc: str = "US",
+        stats: dict[str, int] | None = None,
     ) -> list[AppDetail | None]:
         """并发补全，结果与入参**下标一一对齐**（重复的 appid 也对得上），单条失败返回 None 不中断。"""
         ids = [int(value) for value in appids]
         if not ids:
+            if stats is not None:
+                stats.clear()
+                stats.update({"total": 0, "cached": 0, "resolved": 0,
+                              "unavailable": 0, "failed": 0})
             return []
         try:
-            details = self.get_app_details_map(ids, force_refresh=force_refresh, cc=cc)
+            details = self.get_app_details_map(ids, force_refresh=force_refresh, cc=cc, stats=stats)
         except SteamError:
+            if stats is not None:
+                total = len(set(ids))
+                stats.clear()
+                stats.update({"total": total, "cached": 0, "resolved": 0,
+                              "unavailable": 0, "failed": total})
             return [None] * len(ids)        # 缓存目录出问题也不把抓取带崩
         return [details.get(appid) for appid in ids]
 

@@ -29,7 +29,8 @@
 ``extra.pub``                 ``extra.pub`` 原样 + 拆出 ``creators``（首段是作者）
 ``extra.publisher``           ``extra.publisher``（图书）
 ``extra.platforms``           ``extra.platform``（只留平台 token，中文类型名丢掉）
-``extra.info``                ``extra.info`` 原样 + 拆出 ``extra.release_date``
+``extra.info``                ``extra.info`` 原样 + 拆出 ``extra.release_date``，
+                              日期之前的部分（平台 + 类型）进 ``tags``
 其余（``stars`` ``media`` ``page`` ``first_seen`` ``last_seen`` 与顶层元信息）
                               不导入：要么和 rating 重复，要么是抓取工具的记账字段
 ============================  ====================================================
@@ -66,6 +67,9 @@ _STATUS_BY_DOUBAN: dict[str, str] = {
 }
 _RUNTIME = re.compile(r"^(\d+)分钟$")
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_DATE_IN_TEXT = re.compile(r"\d{4}-\d{2}-\d{2}")
+#: 豆瓣用带空格的斜杠分隔各段；类型名内部的斜杠（``乱斗/清版``）两侧没有空格
+_SPACED_SLASH = re.compile(r"\s+/\s+")
 #: 平台 token：ASCII 字母数字（PC / PS4 / NS / IPHN …），中文的那些其实是类型名
 _PLATFORM = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 +.\-]*$")
 
@@ -105,6 +109,24 @@ def release_date(info: Any) -> str | None:
     if parts and _DATE.match(parts[-1]):
         return parts[-1]
     return None
+
+
+def game_labels(info: Any) -> list[str] | None:
+    """游戏 ``info`` 里日期之前的段（平台 + 类型）-> 标签。
+
+    只按带空格的 ``/ `` 切，``乱斗/清版`` 这种类型名内部的斜杠不会被拆开；
+    万一整串没有带空格的斜杠（旧数据/异常格式），再退回普通斜杠切。
+    """
+    text = str(info or "").strip()
+    if not text:
+        return None
+    found = _DATE_IN_TEXT.search(text)
+    head = text[: found.start()] if found else text
+    if _SPACED_SLASH.search(head):
+        labels = _SPACED_SLASH.split(head)
+    else:
+        labels = head.split("/")
+    return [part.strip() for part in labels if part.strip()] or None
 
 
 def platforms(value: Any) -> list[str] | None:
@@ -191,6 +213,7 @@ class DoubanGamesImporter(DoubanImporter):
         "extra.platform": ["extra.platforms"],
         "extra.info": ["extra.info"],
         "extra.release_date": ["extra.info"],
+        "tags": ["extra.info"],
         "external_ids.douban_game": ["subject_id"],
     }
     transforms: Mapping[str, Any] = {
@@ -198,6 +221,7 @@ class DoubanGamesImporter(DoubanImporter):
         "status": douban_status,
         "extra.platform": platforms,
         "extra.release_date": release_date,
+        "tags": game_labels,
     }
 
 

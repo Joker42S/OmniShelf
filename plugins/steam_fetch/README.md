@@ -19,11 +19,12 @@
 | `playtime_forever`（分钟） | 游戏库接口（愿望单为 null） | `extra.playtime_hours`（小时） |
 | `cover_url` | 商店信息 `header_image` | `extra.cover_url`——**只存链接，不下载图片** |
 | `release_date` | 商店信息 | `year`（抽 4 位年）+ `extra.release_date` 原串 |
-| `price` | 商店信息（按所选区域） | `extra.info` |
 | `developers` | 商店信息 | `creators`（创作者） |
 | `genres` | 商店信息 | `tags`（标签） |
 | `short_description` | 商店信息（清成纯文本） | `notes`（备注） |
 | `appid` | 两份接口都有 | `external_ids("steam", appid)`（幂等去重键） |
+
+价格**不进快照**：同一款游戏的价格随区域和促销常变，记下来很快就过期。
 
 ## 用之前要准备的东西
 
@@ -94,12 +95,17 @@ steam_wishlist.json   <- 上传页选 importer「steam」
 * 商店信息**逐款取，不批量**：``appdetails`` 的多 appid 逗号写法现在会被 Steam 直接回
   **HTTP 400**（2026-10-18 实测：``appids=730,570`` → 400 且 body 是 ``null``，``appids=730`` → 200），
   命中的缓存不发请求，剩下的**最多 8 路并发**；
-  **碰到网络类失败（超时/断网/5xx 重试用尽）就熔断本次剩下的 id**——每个未命中的 id 最坏要付
-  4 次超时，链路断了还硬排 300 个队，就会像 2026-10-18 那次一样挂半小时、结果全是空值。
-  被熔断/失败的这些 appid 不写缓存，下次抓取会重新问；单条 ``success=false`` 只影响那一条；
-* 愿望单接口只给 appid，**商店信息没取到时快照里名字先用 appid 占位**（游戏库不受影响，
-  它自带名字）。这种条目入库后标题就是那串数字——**重导旧快照修不好**（值一模一样，算「未变化」），
-  要等商店域名通着**重抓一次**：按 ``(steam, appid)`` 命中的是同一条，覆盖写回真名字，不会长出第二条；
+  网络类失败按**连续次数**熔断（成功一次就清零）：偶发一两次超时只影响那几条，
+  连续撞墙才认定链路断了、停下排队的 id——每个未命中的 id 最坏要付 4 次超时，
+  链路断了还硬排 300 个队，就会像 2026-10-18 那次一样挂半小时、结果全是空值。
+  熔断/网络失败/限流的 id 会隔 2 秒用 **4 路并发补跑（最多两轮）**，链路只是抖一下也能把名字捞回来；
+  被熔断或失败的 appid 不写缓存，下次抓取会重新问；单条 ``success=false`` 只影响那一条；
+* 愿望单接口只给 appid，**商店信息没取到时快照里名字先用 appid 占位**（游戏库自带名字，不受影响）。
+  2026-10-30 出现过一次网络抖动把愿望单尾部 100 多款全变成数字标题，之后补全层改成
+  「连续失败才熔断 + 失败后补跑两轮」。日志会把两种缺失分开报：商店下架/未公开的
+  「详情不可用」，和网络没取回的「因网络问题没取到」。这些占位名**重导旧快照修不好**
+  （值一模一样，算「未变化」），要**重抓一次**：按 ``(steam, appid)`` 命中的是同一条，
+  覆盖写回真名字，不会长出第二条；
 * 想真正一次拿多个 app 的商店信息，唯一的官方批量接口是 ``IStoreBrowseService/GetItems/v1``
   （POST，要带 ``data_requestids``）。截至 2026-10-18 没有实测通过（探测回 ``{"response":{}}``），
   所以**没有**换过去；换之前要先确认它仍能给出封面/开发者/类型/简介这四样；
@@ -129,5 +135,5 @@ by_id = client.game.get_app_details_map(wish)             # 只要 appid -> 详�
 
 错误模型：`SteamAuthError` / `SteamNotFoundError` / `SteamRateLimitError` /
 `SteamDataUnavailableError` / `SteamNetworkError` / `CacheError`，都继承 `SteamError`。
-测试在 `tests/test_steam_client_*.py`（71 条，含 `test_steam_client_proxy.py` 15 条，
-覆盖设计文档的 9 条验收用例）与 `tests/test_plugin_steam_fetch.py`（插件层 15 条）。
+测试在 `tests/test_steam_client_*.py`（74 条，含 `test_steam_client_proxy.py` 15 条，
+覆盖设计文档的 9 条验收用例）与 `tests/test_plugin_steam_fetch.py`（插件层 17 条）。

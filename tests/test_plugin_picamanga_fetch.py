@@ -1422,3 +1422,77 @@ def test_cli_command_needs_a_credential(manager: PluginManager) -> None:
     manager.load_all()
     with pytest.raises(PluginError):
         manager.run_command(PLUGIN_ID, "fetch_import", [])
+
+
+# --------------------------------------------------------------------- 快速更新
+
+
+def test_quick_update_runs_incremental_and_imports(
+    manager: PluginManager,
+    settings_with_repo_plugins: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    session: Session,
+) -> None:
+    """列表页的一键更新：令牌取配置，模式强制增量，抓完直接导入。"""
+    total = len(docs_of(FAVOURITE))
+    config_file(settings_with_repo_plugins).parent.mkdir(parents=True, exist_ok=True)
+    config_file(settings_with_repo_plugins).write_text(
+        f'token = "{TOKEN}"\nmode = "full"\ndelay = 0\ntimeout = 10\n',
+        encoding="utf-8",
+    )
+    install_fake_network(monkeypatch)
+    manager.load_all()
+
+    result = manager.quick_update(PLUGIN_ID)
+
+    assert result.ok
+    assert f"新增 {total}" in result.summary
+    assert "同步完成" in result.details and f"导入      共 {total} 条" in result.details
+    assert 'mode = "incremental"' in config_file(settings_with_repo_plugins).read_text(
+        encoding="utf-8"
+    )
+    session.expire_all()
+    assert len(repo.list_items(session, kind="manga")) == total
+
+    again = manager.quick_update(PLUGIN_ID)
+    assert again.ok and f"未变化 {total}" in again.summary
+
+
+def test_quick_update_can_log_in_with_the_page_password(
+    manager: PluginManager,
+    settings_with_repo_plugins: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    session: Session,
+) -> None:
+    """配置里只有邮箱时，用页面上那次输入的口令登录；令牌留下，口令不落盘。"""
+    config_file(settings_with_repo_plugins).parent.mkdir(parents=True, exist_ok=True)
+    config_file(settings_with_repo_plugins).write_text(
+        f'email = "{EMAIL}"\ndelay = 0\ntimeout = 10\n',
+        encoding="utf-8",
+    )
+    log: list[dict[str, Any]] = []
+    install_fake_network(
+        monkeypatch, valid_token=NEW_TOKEN, login_token=NEW_TOKEN, log=log
+    )
+    manager.load_all()
+
+    result = manager.quick_update(PLUGIN_ID, {"password": PASSWORD})
+
+    assert result.ok
+    assert PASSWORD not in result.details
+    assert any(row["url"].endswith("/auth/sign-in") for row in log)
+    text = config_file(settings_with_repo_plugins).read_text(encoding="utf-8")
+    assert f'token = "{NEW_TOKEN}"' in text
+    assert PASSWORD not in text
+
+
+def test_quick_update_without_credentials_says_what_is_missing(
+    manager: PluginManager, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = install_fake_network(monkeypatch)
+    manager.load_all()
+
+    result = manager.quick_update(PLUGIN_ID)
+
+    assert not result.ok and "要先认证" in result.summary
+    assert calls == []

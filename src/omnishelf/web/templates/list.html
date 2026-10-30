@@ -29,7 +29,7 @@
       hx-select="#items-panel"
       hx-swap="outerHTML"
       hx-push-url="true"
-      hx-trigger="submit, change from:select[name='kind'], change from:select[name='status'], keyup changed delay:300ms from:input[name='search'], keyup changed delay:300ms from:input[name='title_prefix']">
+      hx-trigger="submit, change from:select[name='kind'], change from:select[name='status'], change from:select[name='source'], keyup changed delay:300ms from:input[name='search'], keyup changed delay:300ms from:input[name='title_prefix']">
   <div class="grid">
     <label>
       搜索标题
@@ -86,6 +86,17 @@
       <label>
         入库日期 · 到
         <input type="date" name="created_to" value="{{ filters.created_to if filters and filters.created_to else '' }}">
+      </label>
+      <label>
+        来源
+        <select name="source">
+          <option value="">全部</option>
+          {% for name in all_sources %}
+            <option value="{{ name }}" {% if filters and filters.source == name %}selected{% endif %}>{{ name }}</option>
+          {% endfor %}
+          <option value="{{ source_missing_value }}"
+                  {% if filters and filters.source == source_missing_value %}selected{% endif %}>（无来源 / 手工录入）</option>
+        </select>
       </label>
     </div>
 

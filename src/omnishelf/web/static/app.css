@@ -344,6 +344,192 @@ td .quick-edit select {
   color: #fff;
 }
 
+.badge.warn {
+  background: #b8860b;
+  color: #fff;
+}
+
+/* 插件页顶部：视图切换 + 全部重载 */
+.plugin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.plugin-view-switch {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.plugin-view-switch a {
+  margin: 0;
+  padding: 0.35rem 0.9rem;
+  white-space: nowrap;
+}
+
+.plugin-toolbar .plugin-actions {
+  margin: 0;
+}
+
+/* 网格视图：一张卡片一列信息，窄屏自动降成一列 */
+.plugin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.plugin-grid-card {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  min-width: 0;
+}
+
+.plugin-grid-card header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.plugin-grid-id {
+  margin: 0.25rem 0 0;
+  font-size: 0.85rem;
+  color: var(--pico-muted-color);
+  word-break: break-all;
+}
+
+.plugin-grid-desc {
+  margin: 0.5rem 0 0;
+  font-size: 0.9rem;
+}
+
+.plugin-grid-error {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  word-break: break-word;
+}
+
+.plugin-grid-card .plugin-footer {
+  margin-top: auto;
+  padding-top: 0.75rem;
+}
+
+.plugin-quick-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.75rem 0 0;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--pico-muted-border-color);
+  font-size: 0.85rem;
+}
+
+.plugin-quick-toggle input {
+  margin: 0;
+}
+
+/* 一键快速更新：按钮 + 各卡片自己的参数 + 状态区 */
+.plugin-quick-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.plugin-quick-bar button {
+  margin: 0;
+  width: auto;
+  flex: none;
+}
+
+.plugin-quick-bar > small {
+  flex: 1 1 16rem;
+  color: var(--pico-muted-color);
+}
+
+.plugin-quick-params {
+  margin: 0.75rem 0 0;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--pico-muted-border-color);
+}
+
+.plugin-quick-param {
+  display: block;
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+}
+
+.plugin-quick-param:last-child {
+  margin-bottom: 0;
+}
+
+.plugin-quick-param input {
+  margin: 0.2rem 0 0;
+}
+
+.plugin-quick-param small {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--pico-muted-color);
+  font-size: 0.75rem;
+}
+
+.plugin-quick-required {
+  color: var(--pico-del-color, #c62828);
+}
+
+.plugin-quick-status header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.plugin-quick-status header small {
+  color: var(--pico-muted-color);
+}
+
+.plugin-quick-results {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+}
+
+.plugin-quick-results > li {
+  padding: 0.5rem 0;
+  border-top: 1px solid var(--pico-muted-border-color);
+}
+
+.plugin-quick-result-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.plugin-quick-summary {
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 480px) {
+  .plugin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .plugin-quick-bar > small {
+    flex: 1 1 100%;
+  }
+}
+
+
 /* 插件自己渲染的内容：里面的表格/图不要溢出卡片 */
 .plugin-body {
   overflow-x: auto;

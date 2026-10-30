@@ -71,10 +71,10 @@
       "url": "https://example.invalid/game/90000003/",
       "cover": "https://img1.example.invalid/view/photo/s_ratio_poster/public/90000003.jpg",
       "extra": {
-        "info": "PC / 益智 / 2016-04-01",
+        "info": "PC / 乱斗/清版 / 2016-04-01",
         "platforms": [
           "PC",
-          "益智"
+          "乱斗/清版"
         ]
       },
       "media": "game",

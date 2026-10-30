@@ -100,6 +100,31 @@ def test_parses_book_page_with_year_and_publisher(loaded: tuple[PluginManager, A
     assert first["rating"] == 6      # rating3-t -> 3 星 -> 6 分
 
 
+def test_parses_game_page_keeps_slash_in_genre(loaded: tuple[PluginManager, Any]) -> None:
+    _, module = loaded
+    html = """
+    <div class="game-list">
+      <div class="common-item">
+        <div class="pic"><a href="https://www.douban.com/game/1234567/">
+          <img src="https://img.invalid/g.jpg"></a></div>
+        <div class="content">
+          <div class="title"><a href="https://www.douban.com/game/1234567/">示例游戏</a></div>
+          <div class="desc">PC / 乱斗/清版 / 2016-04-01</div>
+          <div class="rating-info"><span class="allstar40"></span></div>
+        </div>
+        <span class="date">2018-03-03</span>
+      </div>
+    </div>
+    <div class="paginator"></div>
+    """
+    items, _, _ = module.parse_game_page(html)
+
+    assert len(items) == 1
+    # 只按带空格的斜杠切：类型名内部的斜杠不能被拆开
+    assert items[0].extra["platforms"] == ["PC", "乱斗/清版"]
+    assert items[0].year == "2016"
+
+
 def test_detects_challenge_and_empty_pages(loaded: tuple[PluginManager, Any]) -> None:
     _, module = loaded
     challenge = page_html("douban_movies_challenge.html")

@@ -15,6 +15,7 @@ from omnishelf import repository as repo
 from omnishelf.services.filters import (
     DEFAULT_DESCENDING,
     DEFAULT_SORT,
+    NO_SOURCE,
     FilterError,
     ListFilters,
     default_descending,
@@ -119,6 +120,7 @@ def test_to_query_round_trips() -> None:
         created_to="2026-10-03",
         tags_include=["经典", "短篇"],
         tags_exclude=["福利"],
+        source="picamanga",
         sort="rating",
         dir="asc",
     )
@@ -138,6 +140,7 @@ def test_to_query_round_trips() -> None:
         created_to=params.get("created_to", [None])[0],
         tags_include=params.get("tags_include", []),
         tags_exclude=params.get("tags_exclude", []),
+        source=params.get("source", [None])[0],
         sort=params.get("sort", [None])[0],
         dir=params.get("dir", [None])[0],
     )
@@ -168,6 +171,30 @@ def test_active_filters_removal_keeps_the_rest() -> None:
     assert removed["tags_include"] == ["短篇"]
     assert removed["kind"] == ["manga"] and removed["search"] == ["屑"]
     assert parse_qs(urlparse(chips["类型 manga"]).query).get("kind") is None
+
+
+def test_source_filter_and_no_source_group() -> None:
+    assert parse_filters(source=" picamanga ").source == "picamanga"
+    assert parse_filters(source="picamanga").has_advanced
+    plain = parse_filters()
+    assert plain.source is None and plain.repo_kwargs()["source_missing"] is False
+    unset = parse_filters(source=NO_SOURCE)
+    assert unset.source == NO_SOURCE and unset.has_advanced
+    # repository 不接受哨兵值：翻译成 source_missing
+    assert unset.repo_kwargs()["source"] is None
+    assert unset.repo_kwargs()["source_missing"] is True
+
+
+def test_active_filter_for_source() -> None:
+    chips = {
+        chip["label"]: chip["url"]
+        for chip in parse_filters(source="picamanga").active_filters()
+    }
+    assert set(chips) == {"来源 picamanga"}
+    assert "source=" not in chips["来源 picamanga"]
+    assert {chip["label"] for chip in parse_filters(source=NO_SOURCE).active_filters()} == {
+        "无来源"
+    }
 
 
 # ------------------------------------------------------------------ repository
@@ -360,3 +387,17 @@ def test_creator_filter_matches_any_of_the_creators(session: Session) -> None:
         assert [row.title for row in rows] == expected, needle
     assert repo.count_items(session, creator="社团") == 1
     assert repo.list_items(session, creator="不存在的人") == []
+
+
+def test_source_filter_uses_external_ids(session: Session, make_item: Any) -> None:
+    """来源过滤按 external_ids.source；source_missing 只看没有外部 ID 的条目。"""
+    make_item(kind="manga", title="Pica", external_ids=[("picamanga", "1")])
+    make_item(kind="manga", title="Copy", external_ids=[("copymanga", "2"), ("steam", "3")])
+    make_item(kind="manga", title="Manual")
+
+    assert set(titles(session, source="picamanga")) == {"Pica"}
+    assert set(titles(session, source="steam")) == {"Copy"}
+    assert set(titles(session, source_missing=True)) == {"Manual"}
+    assert set(titles(session)) == {"Pica", "Copy", "Manual"}
+    assert repo.count_items(session, source="copymanga") == 1
+    assert repo.count_items(session, source_missing=True) == 1

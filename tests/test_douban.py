@@ -17,6 +17,7 @@ from omnishelf.importers.douban import (
     DoubanMoviesImporter,
     author_from_pub,
     douban_status,
+    game_labels,
     platforms,
     release_date,
     runtime_minutes,
@@ -120,12 +121,27 @@ def test_games_platform_filter_and_release_date(
     assert one.rating == 10.0 and one.status == "done"
     assert one.creators == []  # 豆瓣这份导出没有开发商信息，不猜
 
+    # 日期之前的内容全部进标签（平台也在内，豆瓣这一串本来就不区分）
+    assert set(repo.list_tags(session, one.id)) == {"PC", "PS4", "动作", "角色扮演"}
+
     # 只有中文 token 时保留原样（宁可不干净也别丢数据）
     assert items["样例：平台全中文"].extra["platform"] == ["动作", "冒险"]
-    # 没有年份的条目
-    assert items["示例游戏 三"].year is None
+    assert set(repo.list_tags(session, items["样例：平台全中文"].id)) == {"动作", "冒险"}
+    # 类型名内部的斜杠两侧没有空格，不能被拆开
+    three = items["示例游戏 三"]
+    assert three.year is None
+    assert set(repo.list_tags(session, three.id)) == {"PC", "乱斗/清版"}
     # 未评分
     assert items["示例游戏 二"].rating is None
+
+
+def test_game_labels_split_on_spaced_slash() -> None:
+    assert game_labels("PC / 乱斗/清版 / 2016-04-01") == ["PC", "乱斗/清版"]
+    # 没有带空格的斜杠时退回普通斜杠
+    assert game_labels("PC/PS4/动作/2016-04-01") == ["PC", "PS4", "动作"]
+    # 没有日期：整串都是标签
+    assert game_labels("PC / 动作") == ["PC", "动作"]
+    assert game_labels("") is None
 
 
 # ------------------------------------------------------------------ 影视

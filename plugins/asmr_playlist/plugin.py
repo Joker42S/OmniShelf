@@ -85,7 +85,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from omnishelf.plugins.api import Plugin, cmd
+from omnishelf.plugins.api import Plugin, QuickUpdateResult, cmd
 
 #: 接口根地址：尾巴（播放列表 / 私人收藏 / 登录）按抓取目标自动补全
 DEFAULT_BASE_URL = "https://api.asmr.one/api/"
@@ -1843,4 +1843,31 @@ class AsmrPlaylist(Plugin):
             page_size=page_size, delay=delay, timeout=timeout,
             incremental=incremental, dry_run=dry_run,
             target=target, authorization=authorization, username=username, password=password,
+        )
+
+    def quick_update(self, options: Mapping[str, Any] | None = None) -> QuickUpdateResult:
+        """用当前配置增量同步私人收藏并导入（和 ``scripts/sync-all.sh`` 同口径）。
+
+        只跑私人收藏：公开播放列表整份翻完要几十分钟，日常维护不值得。
+        令牌/账号、页码、代理都取插件配置里的。
+        """
+        config = effective_config(self.ctx)
+        if not (config["authorization"] or config["username"]):
+            return QuickUpdateResult(ok=False, summary=AUTH_REQUIRED)
+        try:
+            text = run_cli_fetch(self.ctx, target="favorites", incremental=True)
+        except ValueError as exc:
+            return QuickUpdateResult(ok=False, summary=str(exc))
+        import_failed = "  导入      失败" in text
+        incomplete = "  续抓      " in text or "请求失败" in text
+        summary = next(
+            (line.strip() for line in text.splitlines() if line.strip().startswith("本次")),
+            "私人收藏已同步",
+        )
+        if import_failed:
+            summary = "同步完成，但导入失败（快照还在，可到上传页手动导入）"
+        elif incomplete:
+            summary += "；这趟没抓完（见明细里的续抓页码）"
+        return QuickUpdateResult(
+            ok=not import_failed and not incomplete, summary=summary, details=text
         )

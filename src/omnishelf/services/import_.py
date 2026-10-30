@@ -202,6 +202,19 @@ def _prepare_draft(
     return draft.model_copy(update={"extra": extra})
 
 
+def _has_value(value: Any) -> bool:
+    """空列表/空字典等同于「这个字段没有值」。
+
+    否则不带 creators 的来源（豆瓣影视/游戏）在规则 1 重导时会把已有创作者清空
+    ——``[]`` 不是 ``None``，但它也不是「来源给了个新值」。
+    """
+    if value is None:
+        return False
+    if isinstance(value, (list, tuple, dict, set)):
+        return bool(value)
+    return True
+
+
 def _write_scalars(
     session: Session, item: Any, draft: ItemDraft, *, overwrite: bool
 ) -> bool:
@@ -214,7 +227,7 @@ def _write_scalars(
         if name == "kind":
             continue
         value = getattr(draft, name)
-        if value is None:
+        if not _has_value(value):
             continue
         current = getattr(item, name)
         should_write = (
@@ -227,6 +240,8 @@ def _write_scalars(
     merged = dict(item.extra or {})
     extra_changed = False
     for key, value in draft.extra.items():
+        if not _has_value(value):
+            continue
         if overwrite or merged.get(key) is None:
             if merged.get(key) != value:
                 merged[key] = value

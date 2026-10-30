@@ -12,15 +12,15 @@
     {"appid":730,"name":"Counter-Strike 2","status":"done",
      "playtime_forever":640,"playtime_2weeks":null,
      "cover_url":"https://…/header.jpg","release_date":"21 Aug, 2012",
-     "price":"CNY 98.00","developers":["Valve"],"genres":["Action","免费游玩"],
+     "developers":["Valve"],"genres":["Action","免费游玩"],
      "short_description":"…纯文本简介…","url":"https://store.steampowered.com/app/730/"}
 
 字段去处：``appid`` -> 外部 ID（幂等的关键）；``name`` -> title；
 ``playtime_forever``（分钟）-> ``extra.playtime_hours``（小时，1 位小数）；
 ``release_date`` 里抽 4 位年份 -> ``year``，原串留在 ``extra.release_date``；
 ``cover_url`` -> ``extra.cover_url``（只存链接，不下载图片）；
-``price`` 串 -> ``extra.info``；``short_description`` -> notes（备注）；
-``developers`` -> creators（创作者）；``genres`` -> tags（标签）。
+``short_description`` -> notes（备注）；``developers`` -> creators（创作者）；
+``genres`` -> tags（标签）。价格不进库：商店价格随区域/促销常变，记下来很快就过期。
 
 旧快照的 ``header_image`` 键名仍被接受（映射候选里保留）。
 """
@@ -70,7 +70,6 @@ class SteamImporter(JsonFileImporter):
         "extra.cover_url": ["cover_url", "header_image"],
         "extra.playtime_hours": ["playtime_forever"],
         "extra.release_date": ["release_date"],
-        "extra.info": ["price"],
         "external_ids.steam": ["appid"],
     }
     transforms = {

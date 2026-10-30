@@ -297,6 +297,37 @@ def test_pages_zero_after_a_one_page_fetch_crawls_the_rest(
     assert payload["highest_page"] == 3
 
 
+def test_incremental_early_stop_keeps_snapshot_complete(
+    client: TestClient, settings_with_repo_plugins: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """页面上的增量早停同样不能把快照覆盖页数写回 1（否则下一轮又全量）。"""
+    data_dir = settings_with_repo_plugins.plugins_data_dir / PLUGIN_ID
+    data_dir.mkdir(parents=True, exist_ok=True)
+    snapshot = data_dir / "douban_movie_collect.json"
+    snapshot.write_text(
+        json.dumps({
+            "media": "movie", "status": "done", "user": "12345678",
+            "item_count": 15, "highest_page": 3, "total_pages": 3,
+            "items": [{"subject_id": f"900001{i:02d}"} for i in range(1, 16)],
+        }, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    called = install_fake_network(monkeypatch, {1: "douban_movies_page1.html"})
+
+    client.post(
+        f"/plugins/{PLUGIN_ID}",
+        data={
+            "action": "fetch", "media": "movie", "status": "collect",
+            "user": "12345678", "pages": "0", "delay": "1", "incremental": "on",
+        },
+    )
+    body = wait_for_fetch(client)
+    assert "抓取完成" in body
+    assert len(called) == 1                     # 第 1 页整页已知，直接早停
+    payload = json.loads(snapshot.read_text(encoding="utf-8"))
+    assert payload["highest_page"] == 3 and payload["total_pages"] == 3
+
+
 def test_missing_paginator_does_not_cut_a_full_crawl_short(
     client: TestClient, settings_with_repo_plugins: Settings, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -151,7 +151,7 @@ omnishelf import douban_movies.json --importer douban_movies
 
 | 路由 | 能做什么 |
 | --- | --- |
-| `/` | 列表：关键词搜索、类型/状态/标签筛选、高级筛选（评分区间 · 入库日期 · 创作者 · 标签包含排除）、点表头排序、分页、封面缩略图、状态与评分**行内编辑**、创作者可点进同作者的其它作品 |
+| `/` | 列表：关键词搜索、类型/状态/标签筛选、高级筛选（评分区间 · 入库日期 · 创作者 · 来源 · 标签包含排除）、点表头排序、分页、封面缩略图、状态与评分**行内编辑**、创作者可点进同作者的其它作品 |
 | `/items/{id}` | 详情：封面、通用信息与类型专属字段分块排列、来源标识与导入时间线、封面上传 |
 | `/upload` | 上传数据页：选 importer + 上传文件，原始文件按来源存档 |
 | `/review` | 待复核：模糊匹配到的疑似重复，左右并排对比后由你决定合并还是跳过 |
@@ -172,6 +172,7 @@ omnishelf import <file> [<file> ...] --importer <name> [--strict] [--json]
 omnishelf scan-music <目录或文件 ...> [--out PATH] [--import] [--json]
 omnishelf list   [--kind K] [--status S] [--tag T] [--title-prefix P] [--search Q] [--creator C]
                  [--rating-min X] [--rating-max Y] [--created-from D] [--created-to D]
+                 [--source SRC | --no-source]
                  [--with-tag T ...] [--without-tag T ...]
                  [--sort title|rating|year|created_at|updated_at] [--reverse]
                  [--limit N] [--page N] [--json]

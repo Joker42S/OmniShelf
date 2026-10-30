@@ -10,7 +10,11 @@ Web 与 CLI 共用这一层，路由/命令里不写业务逻辑：
   分页、排序表头、可移除筛选标签用的 URL（保留其余筛选条件）。
 
 三条筛选来源合并成同一个 ``ListFilters``：**基础筛选**（kind/status/tag/标题前缀）、
-**搜索**（只搜标题）、**高级筛选**（评分区间/入库日期区间/创作者/tag 包含与排除）。
+**搜索**（只搜标题）、**高级筛选**（评分区间/入库日期区间/创作者/来源/tag 包含与排除）。
+
+``source`` 的取值是 ``external_ids.source``（如 ``picamanga``）；特殊值 ``NO_SOURCE``
+表示「没有任何外部 ID 的条目」（手工录入），在 ``repo_kwargs()`` 里翻译成
+``source_missing=True``。
 """
 
 from __future__ import annotations
@@ -23,6 +27,7 @@ from urllib.parse import urlencode
 __all__ = [
     "FilterError",
     "ListFilters",
+    "NO_SOURCE",
     "SORT_LABELS",
     "DEFAULT_SORT",
     "DEFAULT_DESCENDING",
@@ -30,6 +35,10 @@ __all__ = [
     "default_descending",
     "utc_bounds_for_local_date",
 ]
+
+#: ``source`` 的特殊值：只看没有任何 external_id 的条目（手工录入）。
+#: 真实来源名不会用这个形状，列表页把它渲染成「（无来源）」。
+NO_SOURCE = "__no_source__"
 
 
 class FilterError(ValueError):
@@ -160,6 +169,8 @@ class ListFilters:
     rating_max: float | None = None
     created_from: str | None = None  # 用户输入的日期原文，用于回填表单
     created_to: str | None = None
+    #: 来源（``external_ids.source``）或 ``NO_SOURCE``（无外部 ID）
+    source: str | None = None
     tags_include: tuple[str, ...] = ()
     tags_exclude: tuple[str, ...] = ()
     # 排序
@@ -183,6 +194,8 @@ class ListFilters:
             "rating_max": self.rating_max,
             "created_from": self._created_from_utc,
             "created_to": self._created_to_utc,
+            "source": None if self.source == NO_SOURCE else self.source,
+            "source_missing": self.source == NO_SOURCE,
             "tags_include": self.tags_include,
             "tags_exclude": self.tags_exclude,
         }
@@ -199,6 +212,7 @@ class ListFilters:
             or self.rating_max is not None
             or self.created_from
             or self.created_to
+            or self.source
             or self.tags_include
             or self.tags_exclude
         )
@@ -235,6 +249,10 @@ class ListFilters:
             add(f"入库 ≥ {self.created_from}", {"created_from": None})
         if self.created_to:
             add(f"入库 ≤ {self.created_to}", {"created_to": None})
+        if self.source == NO_SOURCE:
+            add("无来源", {"source": None})
+        elif self.source:
+            add(f"来源 {self.source}", {"source": None})
         for tag_name in self.tags_include:
             add(f"含 tag {tag_name}", {"tags_include": [t for t in self.tags_include if t != tag_name]})
         for tag_name in self.tags_exclude:
@@ -257,6 +275,7 @@ class ListFilters:
             "rating_max": self.rating_max,
             "created_from": self.created_from,
             "created_to": self.created_to,
+            "source": self.source,
             "tags_include": list(self.tags_include),
             "tags_exclude": list(self.tags_exclude),
             "sort": self.sort,
@@ -268,7 +287,7 @@ class ListFilters:
             values["sort"] = DEFAULT_SORT
 
         params: list[tuple[str, str]] = []
-        for key in ("kind", "status", "tag", "title_prefix", "search", "creator"):
+        for key in ("kind", "status", "tag", "title_prefix", "search", "creator", "source"):
             text = _clean(values.get(key))
             if text:
                 params.append((key, text))
@@ -332,6 +351,7 @@ def parse_filters(
     rating_max: Any = None,
     created_from: Any = None,
     created_to: Any = None,
+    source: Any = None,
     tags_include: Iterable[Any] | str | None = None,
     tags_exclude: Iterable[Any] | str | None = None,
     sort: Any = None,
@@ -376,6 +396,7 @@ def parse_filters(
         rating_max=maximum,
         created_from=raw_from,
         created_to=raw_to,
+        source=_clean(source),
         tags_include=_as_tuple(tags_include),
         tags_exclude=_as_tuple(tags_exclude),
         sort=sort_key,

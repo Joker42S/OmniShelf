@@ -86,6 +86,7 @@ def list_page(
     rating_max: Optional[str] = None,
     created_from: Optional[str] = None,
     created_to: Optional[str] = None,
+    source: Optional[str] = None,
     tags_include: list[str] = Query(default=[]),
     tags_exclude: list[str] = Query(default=[]),
     sort: Optional[str] = None,
@@ -97,7 +98,7 @@ def list_page(
     """列表页。
 
     结果由**三部分共同决定**：基础筛选（kind/status/tag/标题前缀）+ 搜索（只搜标题）
-    + 高级筛选（评分区间 / 入库日期区间 / 创作者 / tag 包含与排除）。
+    + 高级筛选（评分区间 / 入库日期区间 / 创作者 / 来源 / tag 包含与排除）。
 
     HTMX 用 ``hx-select=#items-panel`` 做局部刷新，所以这里始终返回整页。
     """
@@ -110,6 +111,8 @@ def list_page(
         "status_labels": STATUS_LABELS,
         "stats": repo.stats(session),
         "all_tags": repo.all_tags(session),
+        "all_sources": repo.all_sources(session),
+        "source_missing_value": filters_service.NO_SOURCE,
     }
 
     def render(filters: Any, *, status_code: int = 200, filter_error: Optional[str] = None) -> HTMLResponse:
@@ -169,6 +172,7 @@ def list_page(
             rating_max=rating_max,
             created_from=created_from,
             created_to=created_to,
+            source=source,
             tags_include=tags_include,
             tags_exclude=tags_exclude,
             sort=sort,

@@ -63,7 +63,7 @@ from steam_client.errors import (                          # noqa: E402
 )
 from steam_client.transport import proxy_without_credentials  # noqa: E402
 
-from omnishelf.plugins.api import Plugin, cmd              # noqa: E402  （宿主 SDK）
+from omnishelf.plugins.api import Plugin, QuickUpdateResult, cmd              # noqa: E402  （宿主 SDK）
 
 LISTS: dict[str, dict[str, str]] = {
     "owned": {"cn": "游戏库", "status": "done", "importer": "steam", "file": "steam_owned.json"},
@@ -168,16 +168,6 @@ def store_url(appid: int) -> str:
     return f"https://store.steampowered.com/app/{appid}/"
 
 
-def price_label(detail: Any) -> str:
-    if detail is None:
-        return ""
-    if detail.is_free:
-        return "free"
-    if detail.price_cents is None:
-        return ""
-    return f"{detail.currency or ''} {detail.price_cents / 100:.2f}".strip()
-
-
 def resolve_sid(client: SteamClient, target: str, kind: str, log: Any) -> str:
     """17 位数字直接用；否则按 vanity 解析。"""
     if kind == "sid":
@@ -218,7 +208,6 @@ def store_fields(info: Any) -> dict[str, Any]:
     return {
         "cover_url": info.header_image if info else None,
         "release_date": info.release_date if info else None,
-        "price": price_label(info),
         "developers": [str(item) for item in raw.get("developers") or [] if str(item).strip()],
         "genres": [str(item.get("description")) for item in raw.get("genres") or []
                    if isinstance(item, Mapping) and str(item.get("description") or "").strip()],
@@ -226,12 +215,28 @@ def store_fields(info: Any) -> dict[str, Any]:
     }
 
 
+def log_detail_gaps(stats: Mapping[str, Any], log: Any) -> None:
+    """把「详情没取到」按原因分开说：商店说不给，还是网络没要回来。
+
+    两种情况都会用 appid 占位、下次重抓覆盖回真名，但用户看到时能分清是该等商店恢复
+    还是该查代理/网络。
+    """
+    unavailable = int(stats.get("unavailable") or 0)
+    failed = int(stats.get("failed") or 0)
+    if unavailable:
+        log(f"其中 {unavailable} 个 app 详情不可用（下架或未公开，先用 appid 占位）")
+    if failed:
+        log(f"另有 {failed} 个 app 详情因网络问题没取到（已自动补跑，重抓会覆盖回真名）")
+
+
 def owned_rows(client: SteamClient, sid: str, *, force_refresh: bool,
                cc: str, log: Any) -> list[dict[str, Any]]:
     games = client.game.get_owned_games(sid)
     log(f"游戏库抓到 {len(games)} 条，补全商店信息（逐款问，命中缓存跳过，最多 8 路并发）…")
+    stats: dict[str, int] = {}
     infos = client.game.enrich_apps([game.appid for game in games],
-                                    force_refresh=force_refresh, cc=cc)
+                                    force_refresh=force_refresh, cc=cc, stats=stats)
+    log_detail_gaps(stats, log)
     rows: list[dict[str, Any]] = []
     for game, info in zip(games, infos):
         row = {
@@ -251,10 +256,9 @@ def wishlist_rows(client: SteamClient, sid: str, *, force_refresh: bool, cc: str
                   log: Any) -> list[dict[str, Any]]:
     appids = client.game.get_wishlist(sid)
     log(f"愿望单抓到 {len(appids)} 个 appid，补全商店信息（逐款问，命中缓存跳过）…")
-    infos = client.game.enrich_apps(appids, force_refresh=force_refresh, cc=cc)
-    missing = sum(1 for info in infos if info is None)
-    if missing:
-        log(f"其中 {missing} 个 app 详情不可用（先用 appid 占位，商店域名恢复后重抓会覆盖回真名）")
+    stats: dict[str, int] = {}
+    infos = client.game.enrich_apps(appids, force_refresh=force_refresh, cc=cc, stats=stats)
+    log_detail_gaps(stats, log)
     rows: list[dict[str, Any]] = []
     for appid, info in zip(appids, infos):
         row = {
@@ -716,6 +720,24 @@ class SteamFetch(Plugin):
                 f"错误 {result['error_count']} · importer {result['importer']} · 日志 #{result['log_id']}"
             )
         return "\n".join(lines)
+
+    def quick_update(self, options: Mapping[str, Any] | None = None) -> QuickUpdateResult:
+        """用当前配置整份重抓游戏库 + 愿望单并导入（Steam 没有增量模式）。"""
+        try:
+            text = self.sync(lists="all")
+        except ValueError as exc:
+            return QuickUpdateResult(ok=False, summary=str(exc))
+        problems: list[str] = []
+        if "未写快照" in text:
+            problems.append("有列表没写快照（档案私密或接口抖动）")
+        if "失败：" in text:
+            problems.append("有列表导入失败")
+        header = next(
+            (line.strip() for line in text.splitlines() if line.strip().startswith("抓取完成")),
+            "Steam 游戏库/愿望单已同步",
+        )
+        summary = header + ("；" + "；".join(problems) if problems else "")
+        return QuickUpdateResult(ok=not problems, summary=summary, details=text)
 
 
 def _logging_progress(log: Any) -> Any:

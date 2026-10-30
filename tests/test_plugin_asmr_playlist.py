@@ -1143,3 +1143,45 @@ def test_cli_command_favorites_needs_a_credential(manager: PluginManager) -> Non
     manager.load_all()
     with pytest.raises(PluginError):
         manager.run_command(PLUGIN_ID, "fetch_import", ["--target", "favorites"])
+
+
+# --------------------------------------------------------------------- 快速更新
+
+
+def test_quick_update_syncs_only_the_private_favorites(
+    manager: PluginManager,
+    settings_with_repo_plugins: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    session: Session,
+) -> None:
+    """列表页的一键更新只跑私人收藏（播放列表整份翻完太慢），令牌取配置。"""
+    data_dir(settings_with_repo_plugins).mkdir(parents=True, exist_ok=True)
+    (data_dir(settings_with_repo_plugins) / "config.toml").write_text(
+        f'authorization = "{TOKEN}"\npages = "0"\ndelay = 0\npage_size = 100\n',
+        encoding="utf-8",
+    )
+    calls, _ = install_fake_network(
+        monkeypatch, FAVORITES_PAGES, require_bearer=TOKEN
+    )
+    manager.load_all()
+
+    result = manager.quick_update(PLUGIN_ID)
+
+    assert result.ok
+    assert "抓到" in result.summary
+    assert "抓取完成：私人收藏" in result.details
+    assert favorites_snapshot(settings_with_repo_plugins)["playlist"]["id"] == "my_favorites"
+    assert calls and all("/api/review" in url for url in calls)
+    assert not any("/api/playlist" in url for url in calls)
+
+
+def test_quick_update_without_credentials_says_what_is_missing(
+    manager: PluginManager, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls, _ = install_fake_network(monkeypatch, FAVORITES_PAGES)
+    manager.load_all()
+
+    result = manager.quick_update(PLUGIN_ID)
+
+    assert not result.ok and "要先认证" in result.summary
+    assert calls == []

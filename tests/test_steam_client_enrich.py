@@ -1,9 +1,13 @@
-"""商店信息补全：单条请求 + ≤8 路并发 + 网络熔断。
+"""商店信息补全：单条请求 + ≤8 路并发 + 按连续失败熔断 + 失败后补跑。
 
-盯的是 2026-10-18 那次现场教训：``appdetails`` 的逗号多 appid 写法会被 Steam 直接回
-HTTP 400（实测 ``appids=730,570`` → 400，``appids=730`` → 200），只能逐条问。
-逐条问的代价在链路断掉时最要命——每条都要付 4 次超时，300 款能挂半小时（那次就是这么挂的），
-所以这里同时断言两件事：**绝不发逗号批量**、**超时了就熔断本次剩下的 id**。
+盯的是两次现场教训：
+
+* 2026-10-18：``appdetails`` 的逗号多 appid 写法会被 Steam 直接回 HTTP 400
+  （实测 ``appids=730,570`` → 400，``appids=730`` → 200），只能逐条问；
+  逐条问的代价在链路断掉时最要命——每条都要付 4 次超时，300 款能挂半小时，
+  所以链路真断了要收手（但按**连续**失败判定，一次抖动不能连坐后面几百条）；
+* 2026-10-30：一次网络失败把愿望单尾部 100 多款全留成数字标题。失败/被跳过的 id
+  必须隔一会儿补跑，而不是直接当作「不可用」。
 """
 
 from __future__ import annotations
@@ -14,7 +18,7 @@ import pytest
 
 from tests.steam_synth import FakeAPI, app_data, make_client
 from steam_client import SteamNetworkError
-from steam_client.errors import CacheError, SteamAuthError, SteamError
+from steam_client.errors import CacheError, SteamAuthError, SteamError, SteamRateLimitError
 from steam_client.game import _MAX_ENRICH_WORKERS
 from steam_client.transport import API_BASE
 
@@ -95,17 +99,75 @@ def test_second_round_needs_no_request_at_all(tmp_path):
 
 
 def test_network_failure_fuses_the_rest_of_the_queue(tmp_path):
-    """链路不通就收手：排队的 id 全部留空，不再一个个去撞超时。"""
+    """链路真断了就收手：排队的 id 留空，不再一个个去撞超时（补跑也只会撞有限几次）。"""
     ids = _ids(200)
     fake = FakeAPI(app_data={appid: app_data(appid) for appid in ids},
                    app_error=SteamNetworkError("timed out"))
     client = make_client(fake, tmp_path / CACHE)
+    client.game.recovery_pause = 0
     details = client.game.enrich_apps(ids)
 
     assert details == [None] * len(ids)
     calls = len(fake.calls_to("appdetails"))
-    assert 1 <= calls <= 4 * _MAX_ENRICH_WORKERS            # 撞墙的最多两拨，绝不是 200 次
+    assert 1 <= calls <= 4 * _MAX_ENRICH_WORKERS            # 撞墙的只有有限几拨，绝不是 200 次
     assert list(client.game.cache.apps_dir.glob("*/*.json")) == []
+
+
+def test_consecutive_failures_trip_the_breaker_but_a_later_round_recovers_the_tail(tmp_path):
+    """2026-10-30 现场：一段网络抖动把愿望单尾部 50 多条全跳过，结果全是数字标题。
+
+    熔断可以开，但跳过/失败的 id 要在补跑那一轮里再问一次；链路只是抖了一下时，
+    整份愿望单仍然每条都有真名字。
+    """
+    ids = _ids(60, start=900)
+    fake = FakeAPI(
+        app_data={appid: app_data(appid, f"Game {appid}") for appid in ids},
+        # 前 8 次 appdetails 调用失败（足够撞开熔断），之后链路恢复——和 appid 无关
+        app_fail_calls=8,
+        app_fail_error=SteamNetworkError("timed out"),
+    )
+    client = make_client(fake, tmp_path / CACHE)
+    client.game.recovery_pause = 0
+    stats: dict[str, int] = {}
+
+    details = client.game.enrich_apps(ids, stats=stats)
+
+    assert [detail.name if detail else None for detail in details] == [f"Game {appid}" for appid in ids]
+    assert stats == {"total": 60, "cached": 0, "resolved": 60, "unavailable": 0, "failed": 0}
+    requested = [int(call["params"]["appids"]) for call in fake.calls_to("appdetails")]
+    assert set(requested) == set(ids)                      # 被跳过的尾部也补问过了
+    assert len(requested) < 2 * len(ids)                   # 补跑次数有限，不是无限重试
+
+
+def test_stats_separate_unavailable_from_persistent_network_failure(tmp_path):
+    """「商店说不给」和「网络没取回」要分开计数，插件才能给出不同的日志。"""
+    ids = _ids(4, start=900)
+    fake = FakeAPI(
+        app_data={appid: app_data(appid) for appid in ids},
+        app_missing={900},
+        app_errors={901: SteamNetworkError("boom")},
+    )
+    client = make_client(fake, tmp_path / CACHE)
+    client.game.recovery_pause = 0
+    stats: dict[str, int] = {}
+
+    details = client.game.enrich_apps(ids, stats=stats)
+
+    assert [detail is not None for detail in details] == [False, False, True, True]
+    assert stats == {"total": 4, "cached": 0, "resolved": 2, "unavailable": 1, "failed": 1}
+
+
+def test_rate_limited_id_is_retried_not_marked_unavailable(tmp_path):
+    fake = FakeAPI(
+        app_data={900: app_data(900, "Retry Me")},
+        app_error_once={900: SteamRateLimitError("HTTP 429", retry_after=1)},
+    )
+    client = make_client(fake, tmp_path / CACHE)
+    client.game.recovery_pause = 0
+
+    details = client.game.enrich_apps([900])
+
+    assert details[0] is not None and details[0].name == "Retry Me"
 
 
 def test_other_failures_do_not_trip_the_breaker(tmp_path):

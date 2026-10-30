@@ -24,6 +24,7 @@ from omnishelf.web.app import create_app
 from tests.test_web_plugin_douban_fetch import (  # 复用「假网络」和「等抓取跑完」
     COOKIE,
     SECRET,
+    FakeResponse,
     config_text,
     install_fake_network,
     logged_in_page,
@@ -32,6 +33,7 @@ from tests.test_web_plugin_douban_fetch import (  # 复用「假网络」和「�
 
 PLUGIN_ID = "douban_fetch"
 USER = "12345678"
+FIXTURES = Path(__file__).parent / "plugin_fixtures"
 
 
 @pytest.fixture()
@@ -241,6 +243,38 @@ def test_cli_command_dry_run_only_fetches(
     assert repo.list_items(session, kind="movie") == []
 
 
+def test_incremental_early_stop_keeps_snapshot_coverage(
+    manager: PluginManager,
+    settings_with_repo_plugins: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """增量早停只翻了第 1 页，但快照仍覆盖旧页；下一轮不能因此变回全量。"""
+    data_dir = settings_with_repo_plugins.plugins_data_dir / PLUGIN_ID
+    data_dir.mkdir(parents=True, exist_ok=True)
+    snapshot = data_dir / "douban_movie_collect.json"
+    snapshot.write_text(
+        json.dumps({
+            "media": "movie", "status": "done", "user": USER,
+            "item_count": 15, "highest_page": 3, "total_pages": 3,
+            "items": [{"subject_id": f"900001{i:02d}"} for i in range(1, 16)],
+        }, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+    manager.load_all()
+    called = install_fake_network(monkeypatch, {1: "douban_movies_page1.html"})
+    args = ["--user", USER, "--pages", "0", "--delay", "1", "--dry-run"]
+
+    first = manager.run_command(PLUGIN_ID, "fetch_import", args)
+    assert "第 1 页整页都是已存在数据，增量停止" in first
+    payload = json.loads(snapshot.read_text(encoding="utf-8"))
+    assert payload["highest_page"] == 3 and payload["total_pages"] == 3
+
+    second = manager.run_command(PLUGIN_ID, "fetch_import", args)
+    assert "第 1 页整页都是已存在数据，增量停止" in second
+    assert len(called) == 2          # 两趟都只请求第 1 页，没有退化成全量
+
+
 def test_cli_command_requires_user(manager: PluginManager) -> None:
     from omnishelf.plugins.manager import PluginError
 
@@ -248,3 +282,53 @@ def test_cli_command_requires_user(manager: PluginManager) -> None:
     with pytest.raises(PluginError) as excinfo:
         manager.run_command(PLUGIN_ID, "fetch_import", ["--pages", "1"])
     assert "豆瓣用户 ID" in str(excinfo.value)
+
+
+# ------------------------------------------------------------------ 快速更新
+
+
+def test_quick_update_runs_all_nine_lists_and_keeps_going(
+    manager: PluginManager,
+    settings_with_repo_plugins: Settings,
+    monkeypatch: pytest.MonkeyPatch,
+    session: Session,
+) -> None:
+    """一键更新按脚本口径跑 3 媒体 × 3 列表；某一种抓不到只算「未抓全」，不中断后面的。"""
+    config_path = settings_with_repo_plugins.plugins_data_dir / PLUGIN_ID / "config.toml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(f'user = "{USER}"\npages = "1"\ndelay = 1\n', encoding="utf-8")
+    manager.load_all()
+
+    def fake_urlopen(request: Any, timeout: int | None = None) -> FakeResponse:
+        url = request.full_url if hasattr(request, "full_url") else str(request)
+        if "movie.douban.com" in url:
+            body = (FIXTURES / "douban_movies_page1.html").read_text(encoding="utf-8")
+        elif "book.douban.com" in url:
+            body = (FIXTURES / "douban_books_page1.html").read_text(encoding="utf-8")
+        else:                                   # 游戏站这次抓不到
+            raise RuntimeError("没有游戏页测试数据")
+        return FakeResponse(url, body)
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setattr("time.sleep", lambda *_: None)
+
+    result = manager.quick_update(PLUGIN_ID)
+
+    assert not result.ok
+    assert "跑了 9 张列表" in result.summary
+    assert "完成 6" in result.summary and "未抓全 3" in result.summary
+    assert result.details.count("【") == 9
+    assert "【电影/剧集 / 看过】" in result.details and "新增 15" in result.details
+    assert "【游戏 / 玩过】" in result.details and "请求失败" in result.details
+
+
+def test_quick_update_without_a_user_says_what_is_missing(
+    manager: PluginManager, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls = install_fake_network(monkeypatch, {1: "douban_movies_page1.html"})
+    manager.load_all()
+
+    result = manager.quick_update(PLUGIN_ID)
+
+    assert not result.ok and "豆瓣用户 ID" in result.summary
+    assert calls == []

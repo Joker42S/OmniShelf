@@ -119,7 +119,8 @@ def test_sync_dry_run_writes_snapshots(manager: PluginManager, fake_transport, p
     wish = _read_json(plugin_data_dir / "steam_wishlist.json")
     assert wish["list"] == "wishlist" and wish["status"] == "wishlist"
     assert wish["items"][1]["name"] == "EA SPORTS FC 26"
-    assert "9.99" in wish["items"][1]["price"]
+    # 价格随区域/促销常变，快照里不记
+    assert "price" not in wish["items"][1]
     # 统一 schema：两份列表的 item 键完全一致（愿望单只是时长为 None）
     assert sorted(owned["items"][0]) == sorted(wish["items"][0])
     assert wish["items"][0]["developers"] == ["Synthetic Valve"]
@@ -212,6 +213,38 @@ def test_placeholder_title_is_fixed_by_a_later_full_fetch(
         item = repo.get_item_by_external_id(session, "steam", "230")
         assert item.title == "Terraria"                       # 覆盖写把占位名换掉
         assert item.extra.get("cover_url") == "https://cdn.invalid/230_header.jpg"
+
+
+def test_transient_network_failure_does_not_leave_wishlist_names_numeric(
+    manager: PluginManager, fake_transport, plugin_data_dir: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """2026-10-30 现场：一次网络抖动把愿望单尾部全变成数字标题。
+
+    补全层现在按连续失败熔断，并且把被跳过的 id 在补跑里重新问一遍。
+    这里从插件入口走同一条链路：第一次 appdetails 失败的那几条也必须拿到真名。
+
+    异常类从**插件实际加载的那份** ``steam_client`` 里取：插件是 exec 加载的，
+    卸载时宿主会清掉插件目录的子包，测试进程顶部的 import 可能已经指向旧模块。
+    """
+    import sys
+
+    game_module = sys.modules["steam_client.game"]
+    monkeypatch.setattr(game_module, "_RECOVERY_PAUSE", 0.0)
+    network_error = sys.modules["steam_client"].SteamNetworkError
+
+    appids = [230, 440, 570, 620, 730, 1097110]
+    fake_transport(FakeAPI(
+        wishlist=[{"appid": appid} for appid in appids],
+        app_data={appid: app_data(appid, f"Game {appid}") for appid in appids},
+        app_error_once={appid: network_error("timed out") for appid in appids[:5]},
+    ))
+
+    out = manager.run_command(PLUGIN_ID, "sync", ["--lists", "wishlist", "--dry-run"])
+
+    assert "抓取完成" in out
+    wish = _read_json(plugin_data_dir / "steam_wishlist.json")
+    assert [row["name"] for row in wish["items"]] == [f"Game {appid}" for appid in appids]
+    assert all(row["cover_url"] for row in wish["items"])
 
 
 def test_empty_lists_reported_as_unavailable_not_zero(
@@ -387,3 +420,31 @@ def test_importers_registered():
     assert get("steam").source == "steam"
     # 旧的按列表拆分的两个 importer 已收敛成单一 ``steam``
     assert "steam_library" not in IMPORTERS and "steam_wishlist" not in IMPORTERS
+
+
+# --------------------------------------------------------------------- 快速更新
+
+def test_quick_update_syncs_both_lists_and_imports(
+    manager: PluginManager, fake_transport, plugin_data_dir: Path,
+    settings_with_repo_plugins: Settings, engine_for_plugins,
+):
+    """列表页的一键更新：游戏库 + 愿望单整份重抓并导入（Steam 没有增量模式）。"""
+    fake_transport(FakeAPI(
+        owned=[owned_entry(730)], wishlist=[{"appid": 230}],
+        app_data={730: app_data(730), 230: app_data(230, "Terraria")},
+    ))
+
+    result = manager.quick_update(PLUGIN_ID)
+
+    assert result.ok
+    assert "抓取完成" in result.summary and "失败" not in result.summary
+    assert (plugin_data_dir / "steam_owned.json").is_file()
+    assert (plugin_data_dir / "steam_wishlist.json").is_file()
+
+    from sqlmodel import Session
+
+    from omnishelf import repository as repo
+
+    with Session(engine_for_plugins) as session:
+        titles = sorted(item.title for item in repo.list_items(session, kind="game", limit=50))
+    assert titles == ["Counter-Strike 2", "Terraria"]

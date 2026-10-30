@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -78,6 +79,10 @@ class FakeAPI:
     失败注入：
 
     * ``owned_error`` / ``app_error``：给异常（模拟 transport 抛错）；
+    * ``app_errors``：按 appid 给异常（每次都抛，模拟那条一直坏）；
+    * ``app_error_once``：按 appid 抛**一次**异常（模拟那条抖了一下，重试就好）；
+    * ``app_fail_calls`` + ``app_fail_error``：前 N 次 appdetails 调用失败，之后恢复
+      （模拟一段几秒的链路抖动，和 appid 无关）；
     * ``app_missing``：返回 ``success=false`` 的正常响应（不是异常）。
 
     ``appdetails`` **只认单 appid**：逗号列表一律回 HTTP 400，这里照抄真机行为。
@@ -92,6 +97,10 @@ class FakeAPI:
         app_data: dict[int, dict[str, Any]] | None = None,
         app_missing: set[int] | None = None,
         app_error: Exception | None = None,
+        app_errors: dict[int, Exception] | None = None,
+        app_error_once: dict[int, Exception] | None = None,
+        app_fail_calls: int = 0,
+        app_fail_error: Exception | None = None,
         players: dict[str, dict[str, Any]] | None = None,
         vanity: dict[str, str] | None = None,
     ) -> None:
@@ -102,6 +111,11 @@ class FakeAPI:
         self.app_data = app_data if app_data is not None else {730: app_data_row()}
         self.app_missing = app_missing or set()
         self.app_error = app_error
+        self.app_errors = dict(app_errors or {})
+        self.app_error_once = dict(app_error_once or {})
+        self.app_fail_calls = int(app_fail_calls)
+        self.app_fail_error = app_fail_error or SteamError("simulated outage")
+        self._fail_lock = threading.Lock()
         self.players = players if players is not None else {SID: player()}
         self.vanity = vanity if vanity is not None else {"gabelogannewell": SID}
 
@@ -146,6 +160,16 @@ class FakeAPI:
                 # 假请求层照抄这条，谁写回批量拉取谁就在这里红。
                 raise SteamError(f"HTTP 400: /api/appdetails（appdetails 不支持多 appid: {raw!r}）")
             appid = int(raw)
+            with self._fail_lock:
+                fail_call = self.app_fail_calls > 0
+                if fail_call:
+                    self.app_fail_calls -= 1
+            if fail_call:
+                raise self.app_fail_error
+            if appid in self.app_error_once:
+                raise self.app_error_once.pop(appid)
+            if appid in self.app_errors:
+                raise self.app_errors[appid]
             if self.app_error is not None and appid not in self.app_missing:
                 raise self.app_error
             if appid in self.app_missing or appid not in self.app_data:

@@ -52,12 +52,19 @@ __all__ = [
     "AVAILABLE_INTERFACES",
     "PluginError",
     "PluginCommand",
+    "QuickParam",
+    "QuickUpdateResult",
     "cmd",
     "plugin_commands",
+    "plugin_quick_params",
+    "quick_params",
 ]
 
 #: ``@cmd`` 往方法上挂的属性名
 CMD_ATTR = "__plugin_command__"
+
+#: ``@quick_params`` 往方法上挂的属性名
+QUICK_PARAMS_ATTR = "__plugin_quick_params__"
 
 
 @dataclass(frozen=True)
@@ -132,6 +139,90 @@ def _documented_params(doc: str) -> list[str]:
 
 class PluginError(RuntimeError):
     """插件运行时错误（页面会把它显示给用户）。"""
+
+
+@dataclass(frozen=True)
+class QuickParam:
+    """快速更新需要用户填的一项参数（由 :func:`quick_params` 声明）。
+
+    ``secret=True`` 的项在页面上渲染成密码框，值不会回填、不会进状态区；
+    不管是否 secret，宿主都只把值交给本次 ``quick_update(options)``，不会落盘或写日志。
+    """
+
+    name: str
+    description: str = ""
+    required: bool = False
+    secret: bool = False
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "description": self.description,
+            "required": self.required,
+            "secret": self.secret,
+        }
+
+
+def quick_params(*params: QuickParam) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """声明 ``quick_update`` 需要的参数：名字、说明、是否必填。
+
+    页面上这些输入框放在该插件的网格卡片里；没声明的插件只有开关、没有输入框。
+    可以叠用多个装饰器，也可以一次传多个 :class:`QuickParam`。
+    """
+    cleaned: list[QuickParam] = []
+    seen: set[str] = set()
+    for param in params:
+        name = str(param.name or "").strip()
+        if not name:
+            raise ValueError("QuickParam.name 不能为空")
+        if name in seen:
+            raise ValueError(f"QuickParam 名字重复: {name}")
+        seen.add(name)
+        cleaned.append(
+            QuickParam(
+                name=name,
+                description=str(param.description or "").strip(),
+                required=bool(param.required),
+                secret=bool(param.secret),
+            )
+        )
+
+    def decorate(func: Callable[..., Any]) -> Callable[..., Any]:
+        existing = tuple(getattr(func, QUICK_PARAMS_ATTR, ()))
+        names = {item.name for item in existing}
+        for item in cleaned:
+            if item.name in names:
+                raise ValueError(f"QuickParam 名字重复: {item.name}")
+        setattr(func, QUICK_PARAMS_ATTR, existing + tuple(cleaned))
+        return func
+
+    return decorate
+
+
+def plugin_quick_params(cls: type) -> tuple[QuickParam, ...]:
+    """某个插件类为 ``quick_update`` 声明的参数（取最具体的实现，不合并被覆盖的父类声明）。"""
+    for klass in cls.__mro__:
+        value = vars(klass).get("quick_update")
+        if value is None:
+            continue
+        return tuple(getattr(value, QUICK_PARAMS_ATTR, ()))
+    return ()
+
+
+@dataclass(frozen=True)
+class QuickUpdateResult:
+    """一次快速更新的结果（插件列表页「一键快速更新」用）。
+
+    ``ok=False`` 表示这趟没跑完或没抓全（不是指抛异常——异常由宿主捕获并记成失败）；
+    ``summary`` 是给人看的一行，``details`` 是多行明细（可省略）。
+    """
+
+    ok: bool = True
+    summary: str = ""
+    details: str = ""
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"ok": self.ok, "summary": self.summary, "details": self.details}
 
 
 class Plugin(ABC):
@@ -259,6 +350,24 @@ class Plugin(ABC):
     ) -> str | None:
         """处理插件页面上的表单提交：返回 HTML 直接回显，返回 ``None`` 跳回页面。"""
         return None
+
+    # ------------------------------------------------------------------ 快速更新（可选）
+    def quick_update(self, options: Mapping[str, Any] | None = None) -> QuickUpdateResult:
+        """用**当前保存的配置**跑一次增量更新 + 导入（插件列表页「一键快速更新」）。
+
+        覆盖它，插件卡片的网格视图里才会出现开关。需要的运行期参数用
+        :func:`quick_params` 声明（名字、说明、是否必填），页面上会放在这张卡片里；
+        调用时按 ``options["参数名"]`` 取值。约定：
+
+        * 值只在本次调用里用，**不要落盘、不要进日志**；``secret=True`` 的项页面上也不回填；
+        * 必填项缺失时宿主不会调用到这里（直接记成这个插件失败），可选项缺了要自己兜底；
+        * 这是「日常增量」：状态、页码、凭据全部来自插件配置与上次的状态文件，
+          调用方不会替插件指定范围；
+        * 跑完自己走 ``self.import_file(...)`` 入库，和页面上的按钮一个链路；
+        * 没抓全能感知到时返回 ``ok=False`` 并在 ``summary`` 里说清楚；
+        * 异常直接往外抛——宿主会捕获、记日志，并把它算成这个插件的失败。
+        """
+        raise NotImplementedError(f"{type(self).__name__} 没有实现 quick_update()")
 
     # ------------------------------------------------------------------ 其它
     def __repr__(self) -> str:  # pragma: no cover - 调试用

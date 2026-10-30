@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from omnishelf import repository as repo
+from omnishelf.services.filters import NO_SOURCE
 from omnishelf.web.app import create_app
 
 
@@ -67,6 +68,7 @@ def test_advanced_panel_has_all_inputs(client: TestClient, page_data: dict[str, 
         "created_from",
         "created_to",
         "creator",
+        "source",
         "tags_include",
         "tags_exclude",
     ):
@@ -111,6 +113,26 @@ def test_creator_filter(client: TestClient, page_data: dict[str, str]) -> None:
         "雨の日の図書館",
     }
     assert titles_in(client.get("/", params={"creator": "王五"}).text) == ["雨の日の図書館"]
+
+
+def test_source_filter(client: TestClient, session: Session, make_item: Any) -> None:
+    """来源下拉列出库里出现过的 source；也能只看「无来源」的手工条目。"""
+    make_item(kind="manga", title="Pica One", external_ids=[("picamanga", "1")])
+    make_item(kind="manga", title="Copy One", external_ids=[("copymanga", "2")])
+    make_item(kind="manga", title="Manual One")
+    session.commit()
+
+    select = re.search(r'<select name="source">(.*?)</select>', client.get("/").text, re.S)
+    assert select is not None
+    options = set(re.findall(r'<option value="([^"]+)"', select.group(1)))
+    assert {"picamanga", "copymanga", NO_SOURCE} <= options
+
+    assert titles_in(client.get("/", params={"source": "picamanga"}).text) == ["Pica One"]
+    assert titles_in(client.get("/", params={"source": NO_SOURCE}).text) == ["Manual One"]
+
+    filtered = client.get("/", params={"source": "picamanga"}).text
+    assert "来源 picamanga" in filtered  # 当前筛选 chip
+    assert re.search(r'<option value="picamanga" selected>', filtered)
 
 
 def test_tags_include_is_and_logic(client: TestClient, page_data: dict[str, str]) -> None:

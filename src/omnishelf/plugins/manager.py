@@ -32,7 +32,15 @@ from typing import Any, Iterable, Mapping, Sequence
 from sqlalchemy import Engine
 
 from ..repository import utc_now_iso
-from .api import Plugin, PluginCommand, PluginError as SDKPluginError, plugin_commands
+from .api import (
+    Plugin,
+    PluginCommand,
+    PluginError as SDKPluginError,
+    QuickParam,
+    QuickUpdateResult,
+    plugin_commands,
+    plugin_quick_params,
+)
 from .context import PluginContext
 from .host import AVAILABLE_INTERFACES, HostAPI, QueryHostAPI
 from .logstore import PluginLogStore
@@ -63,6 +71,9 @@ class PluginStatus:
     loaded_at: str | None = None
     requires: tuple[str, ...] = ()
     has_page: bool = False
+    supports_quick_update: bool = False
+    #: ``@quick_params`` 声明、要在这张卡片里填的参数
+    quick_params: tuple[QuickParam, ...] = ()
     logs: list[str] = field(default_factory=list)
     #: 宿主把这个插件的日志落到了哪儿（没开日志就是 ``None``）。
     log_file: str | None = None
@@ -84,6 +95,8 @@ class PluginStatus:
             "loaded_at": self.loaded_at,
             "requires": list(self.requires),
             "has_page": self.has_page,
+            "supports_quick_update": self.supports_quick_update,
+            "quick_params": [param.as_dict() for param in self.quick_params],
             "log_file": self.log_file,
         }
 
@@ -104,6 +117,18 @@ class LoadedPlugin:
     def has_page(self) -> bool:
         """插件是否提供了自己的页面（覆盖了 ``render_page``）。"""
         return type(self.instance).render_page is not Plugin.render_page
+
+    @property
+    def supports_quick_update(self) -> bool:
+        """插件是否实现了快速增量更新（覆盖了 ``quick_update``）。"""
+        return type(self.instance).quick_update is not Plugin.quick_update
+
+    @property
+    def quick_params(self) -> tuple[QuickParam, ...]:
+        """``quick_update`` 上声明的参数（没实现快速更新时为空）。"""
+        if not self.supports_quick_update:
+            return ()
+        return plugin_quick_params(type(self.instance))
 
 
 class PluginError(SDKPluginError):
@@ -420,6 +445,8 @@ class PluginManager:
             error=error,
             loaded_at=loaded.loaded_at if loaded else None,
             has_page=loaded.has_page if loaded else False,
+            supports_quick_update=loaded.supports_quick_update if loaded else False,
+            quick_params=loaded.quick_params if loaded else (),
             logs=loaded.context.logs if loaded else [],
             log_file=str(self.log_store.path_for(plugin_id)) if self.log_store else None,
         )
@@ -450,6 +477,52 @@ class PluginManager:
         except Exception as exc:
             raise PluginError(f"handle_post() 出错: {type(exc).__name__}: {exc}") from exc
         return None if result is None else str(result)
+
+    def quick_update(
+        self, plugin_id: str, options: Mapping[str, Any] | None = None
+    ) -> QuickUpdateResult:
+        """用插件当前配置跑一次快速增量更新（插件列表页「一键快速更新」）。
+
+        插件没加载/没实现 ``quick_update`` 都抛 :class:`PluginError`；插件自己抛的异常
+        会包一层再抛（页面按插件逐个记失败，不影响其它插件）。开始/结果记进插件日志。
+        """
+        loaded = self._loaded.get(plugin_id)
+        if loaded is None:
+            raise PluginError(f"插件未加载: {plugin_id}")
+        if not loaded.supports_quick_update:
+            raise PluginError(f"插件 {plugin_id} 没有实现快速更新（quick_update）")
+        options = dict(options or {})
+        missing = [
+            param.name
+            for param in loaded.quick_params
+            if param.required and not str(options.get(param.name) or "").strip()
+        ]
+        if missing:
+            message = f"缺少必填参数：{', '.join(missing)}"
+            self._host_log(plugin_id, message, level="error")
+            raise PluginError(message)
+        self._host_log(plugin_id, "开始快速更新（增量 + 导入）")
+        try:
+            result = loaded.instance.quick_update(options)
+        except Exception as exc:
+            self._host_log(
+                plugin_id, f"快速更新出错：{type(exc).__name__}: {exc}", level="error"
+            )
+            raise PluginError(f"quick_update() 出错: {type(exc).__name__}: {exc}") from exc
+        if not isinstance(result, QuickUpdateResult):
+            message = (
+                f"quick_update() 返回了 {type(result).__name__}，"
+                f"应返回 QuickUpdateResult"
+            )
+            self._host_log(plugin_id, message, level="error")
+            raise PluginError(message)
+        line = result.summary or ("完成" if result.ok else "没跑完")
+        self._host_log(
+            plugin_id,
+            f"快速更新{'完成' if result.ok else '未完成'}：{line}",
+            level="info" if result.ok else "warning",
+        )
+        return result
 
     def check_requires(self, metadata: PluginMetadata) -> list[str]:
         """返回插件声明了但宿主没提供的接口名（给页面提示用）。"""
