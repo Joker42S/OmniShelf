@@ -1022,7 +1022,7 @@ def test_favorites_ratings_import_as_scores(
     html = wait_for_fetch(client)
     assert "导入到 OmniShelf" in html
     assert "新增 2" in html
-    assert "条带你打过的分" in html
+    assert "条带有评分" in html
 
     session.expire_all()
     items = {item.title: item for item in repo.list_items(session, kind="asmr")}

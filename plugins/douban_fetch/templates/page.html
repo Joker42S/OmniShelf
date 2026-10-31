@@ -55,11 +55,11 @@
           <pre style="max-height:12rem;overflow:auto;font-size:.78rem">{{ job.notes|join('\n') }}</pre>
         </details>
       {% endif %}
-      <p><small>抓取在后台跑，这一栏每 {{ poll_seconds }} 秒自己刷新一次。
-        切到别的页面也没关系，回来还能看到进度。</small></p>
+      <p><small>抓取在后台运行，此栏每 {{ poll_seconds }} 秒自动刷新一次，
+        期间可切换页面，进度不会丢失。</small></p>
     {% elif job.state == 'error' %}
       <p><strong style="color:#dc2626">{{ job.error }}</strong></p>
-      <p><small>已经抓到的部分不会丢（快照按页累积），稍后可以接着用增量抓取续抓。</small></p>
+      <p><small>已抓取的数据不会丢失（快照按页累积），稍后可用增量抓取续抓。</small></p>
     {% endif %}
   </article>
 
@@ -68,8 +68,8 @@
   <header><strong>导入到 OmniShelf</strong></header>
   {% if import_report.error %}
     <p><strong>导入失败：</strong>{{ import_report.error }}</p>
-    <p><small>抓取本身没白跑：快照已经在 <code>{{ import_report.path }}</code>，
-      可以稍后到上传页手动导入。</small></p>
+    <p><small>已抓取的数据不会丢失：快照已保存至 <code>{{ import_report.path }}</code>，
+      可稍后到上传页手动导入。</small></p>
   {% else %}
     <p>
       共 {{ import_report.total }} 条 ·
@@ -101,13 +101,13 @@
       <tbody>
         <tr><th style="width:11rem">本次抓到</th><td><strong>{{ report.fetched_count }}</strong> 条（其中新增 {{ report.new_count }} 条）</td></tr>
         <tr><th>快照累计</th><td><strong>{{ report.item_count }}</strong> 条
-          <small>（含之前几次抓的；同一媒体+列表是一个文件，反复抓会不断累积/更新）</small></td></tr>
+          <small>（含之前几次抓取；同一媒体+列表是一个文件，重复抓取会持续累积/更新）</small></td></tr>
         <tr>
           <th>认证</th>
           <td>{{ report.auth_display or ('带 Cookie' if report.auth == 'cookie' else '游客（未认证）') }}
-            <small>（{% if report.auth == 'cookie' %}这一趟带了 Cookie{% else %}这一趟没带 Cookie{% endif %}，
-              差额里可能混着「仅自己可见」的条目{% if report.auth == 'cookie' and report.logged_in is not true %}；
-              豆瓣按游客渲染，Cookie 大概已失效{% endif %}）</small></td>
+            <small>（{% if report.auth == 'cookie' %}本次带了 Cookie{% else %}本次未带 Cookie{% endif %}，
+              差额中可能包含「仅自己可见」的条目{% if report.auth == 'cookie' and report.logged_in is not true %}；
+              豆瓣按游客渲染，Cookie 可能已失效{% endif %}）</small></td>
         </tr>
         <tr><th>豆瓣报告总数</th><td>{{ report.reported_count if report.reported_count is not none else '—' }} 条</td></tr>
         <tr>
@@ -115,14 +115,14 @@
           <td>
             {% if report.deleted_or_hidden %}
               {{ report.deleted_or_hidden }} 条
-              <small>（豆瓣里已被删除或隐藏的条目，仍计入站点总数但列表页不渲染；不是抓漏。
-                {% if report.auth != 'cookie' %}这一趟是游客身份，「仅自己可见」的条目也会计在这堆里{% endif %}）</small>
+              <small>（豆瓣中已删除或隐藏的条目，仍计入站点总数但列表页不渲染，并非抓漏。
+                {% if report.auth != 'cookie' %}本次为游客身份，「仅自己可见」的条目也计入其中{% endif %}）</small>
             {% elif report.deleted_or_hidden is not none %}
               无
-              <small>（豆瓣报的条数和抓到的完全一致）</small>
+              <small>（豆瓣报的条数与抓到的完全一致）</small>
             {% else %}
               —
-              <small>（快照还没覆盖到最后一页，先不计算；抓完整了这里会显示差额）</small>
+              <small>（快照尚未覆盖到最后一页，暂不计算；抓完整后此处会显示差额）</small>
             {% endif %}
           </td>
         </tr>
@@ -148,8 +148,8 @@
         <summary>抓取明细（{{ report.notes|length }} 行）</summary>
         <pre style="max-height:16rem;overflow:auto;font-size:.78rem">{{ report.notes|join('\n') }}</pre>
       </details>
-      <p><small>这份明细只在内存里，关掉页面就没了；每一页都同时记进了宿主的运行日志，
-        重启也查得到：<a href="/logs?plugin=douban_fetch&follow=0">看日志</a>。</small></p>
+      <p><small>此处明细仅在内存中，关闭页面后不可见；每页明细同时记录在宿主运行日志中，
+        重启后仍可查看：<a href="/logs?plugin=douban_fetch&follow=0">查看日志</a>。</small></p>
     {% endif %}
     {% if json_text %}
       <details>
@@ -165,9 +165,9 @@
 <article class="plugin-body">
   <h3 style="margin-top:0">豆瓣收藏抓取 <small style="font-weight:400">· 插件 id <code>douban_fetch</code></small></h3>
   <p style="font-size:.86rem">
-    抓到的是 <strong>看过/读过/玩过</strong>（也可选在看/想读等），存成 JSON 后由你手动上传导入。
-    差额（豆瓣报的比你抓到的多）有两种：<strong>豆瓣里已删除的条目</strong>（正常），
-    以及标了「仅自己可见」、<strong>游客看不到的条目</strong>——后者要在上面填登录 Cookie 才抓得到。
+    抓取的是<strong>看过/读过/玩过</strong>（也可选在看/想读等），保存为 JSON 后由你手动上传导入。
+    差额（豆瓣报的比抓到的多）有两种来源：<strong>豆瓣里已删除的条目</strong>（正常），
+    以及标记为「仅自己可见」、<strong>游客看不到的条目</strong>——后者需在上方填写登录 Cookie 才能抓到。
   </p>
 
   <form method="post" action="/plugins/douban_fetch">
@@ -187,7 +187,7 @@
         </select>
       </label>
       <label>豆瓣用户 ID
-        <input type="text" name="user" value="{{ fetch_user }}" placeholder="个人主页 URL 里那串数字"
+        <input type="text" name="user" value="{{ fetch_user }}" placeholder="个人主页地址中的数字"
                inputmode="numeric" pattern="[0-9]*">
       </label>
     </div>
@@ -200,7 +200,7 @@
       </label>
       <label>请求间隔（秒）
         <input type="number" name="delay" min="1" max="30" step="0.5" value="{{ config.delay }}">
-        <small>豆瓣限速敏感，别低于 2 秒；抓多了建议 5 秒以上。</small>
+        <small>豆瓣限速敏感，请勿低于 2 秒；抓取量大时建议 5 秒以上。</small>
       </label>
     </div>
 
@@ -213,16 +213,16 @@
       <input type="password" name="cookie" autocomplete="off"
              placeholder="{{ '已存 ' + auth_display + ' · 留空即沿用' if has_cookie else 'dbcl2=…（可再带上 ck=…）' }}">
       <small>
-        {% if has_cookie %}当前认证：<strong>{{ auth_display }}</strong>。值不回显，留空点抓取就沿用它。
+        {% if has_cookie %}当前认证：<strong>{{ auth_display }}</strong>。值不回显，留空抓取即沿用。
         {% else %}
-        抓<strong>自己的列表</strong>建议填上：豆瓣会把部分条目设成「仅自己可见」，
-        游客视角连<strong>总数都会少报</strong>（实测同一列表：游客 1395 条 / 登录 1402 条）。
+        抓取<strong>自己的列表</strong>建议填写：豆瓣会把部分条目设为「仅自己可见」，
+        游客视角连<strong>总数都会少报</strong>。
         {% endif %}
-        怎么拿：浏览器登录豆瓣 → 开发者工具 → Application/存储 → Cookies →
-        把 <code>dbcl2</code>（必需）连同 <code>ck</code> 复制成 <code>名字=值</code> 粘进来，
-        两列（<code>dbcl2&nbsp;&nbsp;&nbsp;值</code>）或整串 Header 值都认。
-        它会存在本地 <code>plugins_data/douban_fetch/config.toml</code>（不进仓库、不进日志，
-        日志与页面只报字段名）。
+        获取方式：浏览器登录豆瓣 → 开发者工具 → Application/存储 → Cookies →
+        将 <code>dbcl2</code>（必需）连同 <code>ck</code> 复制为 <code>名字=值</code> 粘贴到此处，
+        两列（<code>dbcl2&nbsp;&nbsp;&nbsp;值</code>）或整串 Header 值均可。
+        会保存到本地 <code>plugins_data/douban_fetch/config.toml</code>（不进仓库、不进日志，
+        日志与页面只显示字段名）。
       </small>
     </label>
     {% if has_cookie %}
@@ -236,10 +236,10 @@
       <button type="submit" name="action" value="fetch_import" class="secondary">抓取并导入</button>
     </div>
     <small>
-      抓取在后台跑，上方的进度条会实时显示抓到第几页，这期间可以去别的页面。
-      一页约 {{ config.delay }} 秒：抓几十页就是几分钟，进度条会一直显示跑到哪了。
+      抓取在后台运行，进度条实时显示抓取进度，期间可切换页面。
+      一页约 {{ config.delay }} 秒，抓几十页需要几分钟，进度条会持续显示进度。
       <br>
-      <strong>抓取并导入</strong> = 抓完直接入库，和上传页走同一条链路。
+      <strong>抓取并导入</strong> = 抓完后直接入库，与上传页走同一条链路。
     </small>
   </form>
 
@@ -315,7 +315,7 @@
       </tbody>
     </table>
   {% else %}
-    <p><small>还没有快照。填好上面的表单点「开始抓取」就会生成。</small></p>
+    <p><small>还没有快照。填写上方表单并点击「开始抓取」即可生成。</small></p>
   {% endif %}
 </article>
 

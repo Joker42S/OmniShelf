@@ -40,13 +40,13 @@
           <pre style="max-height:12rem;overflow:auto;font-size:.78rem">{{ job.notes|join('\n') }}</pre>
         </details>
       {% endif %}
-      <p><small>扫描在后台跑，这一栏每 {{ poll_seconds }} 秒自己刷新一次。
-        切到别的页面也没关系，回来还能看到进度。</small></p>
+      <p><small>扫描在后台运行，此栏每 {{ poll_seconds }} 秒自动刷新一次，
+        期间可切换页面，进度不会丢失。</small></p>
     {% elif job.state == 'error' %}
       <p><strong style="color:#dc2626">{{ job.error }}</strong></p>
       {% if job.report %}
-        <p><small>清单没丢：<code>{{ job.report.manifest_path }}</code>，
-          稍后可以到上传页手动导入（importer 选 <code>music_files</code>）。</small></p>
+        <p><small>清单不会丢失：<code>{{ job.report.manifest_path }}</code>，
+          可稍后到上传页手动导入（importer 选 <code>music_files</code>）。</small></p>
       {% endif %}
     {% endif %}
 
@@ -54,7 +54,7 @@
       <table role="grid">
         <tbody>
           <tr><th style="width:11rem">读到标签</th><td><strong>{{ job.report.item_count }}</strong> 条</td></tr>
-          <tr><th>没标签</th><td>{{ job.report.tagless }} 个（拿文件名兜了底）</td></tr>
+          <tr><th>无标签</th><td>{{ job.report.tagless }} 个（用文件名兜底）</td></tr>
           <tr><th>读失败</th><td>{{ job.report.failed }} 个</td></tr>
           <tr><th>清单</th><td><code>{{ job.report.manifest_path }}</code></td></tr>
           <tr><th>用时</th><td>{{ job.elapsed }} 秒</td></tr>
@@ -62,7 +62,7 @@
       </table>
       {% if job.report.errors %}
         <details>
-          <summary>读盘告警（{{ job.report.errors|length }} 条{% if job.report.errors_hidden %}，另有 {{ job.report.errors_hidden }} 条没列出来{% endif %}）</summary>
+          <summary>读取告警（{{ job.report.errors|length }} 条{% if job.report.errors_hidden %}，另有 {{ job.report.errors_hidden }} 条未列出{% endif %}）</summary>
           <ul>{% for message in job.report.errors %}<li><small>{{ message }}</small></li>{% endfor %}</ul>
         </details>
       {% endif %}
@@ -85,7 +85,7 @@
   <p><small>
     importer <code>{{ import_report.source }}</code> · 导入日志 #{{ import_report.log_id }}
     {% if import_report.archive_path %}· 清单已存档{% endif %}
-    · 同一张专辑里「曲名 + 专辑 + 艺术家」都相同的文件算同一首歌，重复的会判成未变化
+    · 同一专辑中「曲名 + 专辑 + 艺术家」均相同的文件视为同一首歌，重复的会判为「未变化」
   </small></p>
   {% if import_report.errors %}
     <h5>导入错误（前 {{ import_report.errors|length }} 条）</h5>
@@ -103,16 +103,16 @@
       <button type="submit" name="action" value="pick_files" class="secondary">选多个文件</button>
     </div>
     <small>
-      按钮会弹出<strong>系统自己的</strong>选择框（访达），选完这一趟就开始跑：
-      文件夹会被整个深度遍历，只认这些后缀
+      点击按钮会弹出<strong>系统选择框</strong>（访达），选定后立即开始扫描：
+      文件夹会整体深度遍历，只读取这些后缀
       <code>{{ suffixes|join(' ') }}</code>；
-      回收站、<code>.DS_Store</code> 那类垃圾目录和隐藏项会跳过。
-      读到的标签进 <strong>音乐</strong> 分类，入库和上传页走同一条链路。
+      回收站、<code>.DS_Store</code> 等目录与隐藏项会跳过。
+      读取的标签进入<strong>音乐</strong>分类，入库与上传页走同一链路。
     </small>
     {% else %}
     <p><small>
-      这台机器上弹不出 macOS 的访达选择框，请在下面的框里填路径（效果和按钮一样）。
-      文件夹会被整个深度遍历，只认这些后缀
+      此平台无法弹出 macOS 的访达选择框，请在下方输入框中填写路径（效果与按钮相同）。
+      文件夹会整体深度遍历，只读取这些后缀
       <code>{{ suffixes|join(' ') }}</code>。
     </small></p>
     {% endif %}
@@ -142,9 +142,9 @@
 <article class="plugin-body">
   <details>
     <summary>数据目录 / 说明</summary>
-    <p style="font-size:.82rem">清单写在 <code>{{ data_dir }}</code>（每次覆盖同名文件，只留最近一趟）。</p>
+    <p style="font-size:.82rem">清单保存在 <code>{{ data_dir }}</code>（每次覆盖同名文件，只保留最近一次）。</p>
     <p style="font-size:.82rem">
-      想在命令行里做同一件事：<code>omnishelf scan-music &lt;目录或文件…&gt; --import</code>。
+      命令行可完成同样的事：<code>omnishelf scan-music &lt;目录或文件…&gt; --import</code>。
       iTunes 导出的 XML 走另一个 importer：<code>omnishelf import -i itunes_xml &lt;xml 文件&gt;</code>。
     </p>
   </details>

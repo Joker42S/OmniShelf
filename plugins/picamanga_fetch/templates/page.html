@@ -62,11 +62,11 @@
           <pre style="max-height:12rem;overflow:auto;font-size:.78rem">{{ job.notes|join('\n') }}</pre>
         </details>
       {% endif %}
-      <p><small>同步在后台跑，这一栏每 {{ poll_seconds }} 秒自己刷新一次。
-        切到别的页面也没关系，回来还能看到进度。</small></p>
+      <p><small>同步在后台运行，此栏每 {{ poll_seconds }} 秒自动刷新一次，
+        期间可切换页面，进度不会丢失。</small></p>
     {% elif job.state == 'error' %}
       <p><strong style="color:#dc2626">{{ job.error }}</strong></p>
-      <p><small>已经抓到的部分不会丢（状态库是累积的），改好认证再点一次就能接着同步。</small></p>
+      <p><small>已抓取的数据不会丢失（状态库是累积的），修正认证后再次同步即可继续。</small></p>
     {% endif %}
   </article>
 
@@ -75,8 +75,8 @@
   <header><strong>导入到 OmniShelf</strong> <small>importer <code>{{ import_report.importer }}</code></small></header>
   {% if import_report.error %}
     <p><strong>导入失败：</strong>{{ import_report.error }}</p>
-    <p><small>同步本身没白跑：文件已经在 <code>{{ import_report.path }}</code>，
-      可以稍后到上传页选 importer <code>{{ importer }}</code> 手动导入。</small></p>
+    <p><small>已抓取的数据不会丢失：文件已保存至 <code>{{ import_report.path }}</code>，
+      可稍后到上传页选择 importer <code>{{ importer }}</code> 手动导入。</small></p>
   {% else %}
     <p>
       共 {{ import_report.total }} 条 ·
@@ -89,7 +89,7 @@
     <p><small>
       导入日志 #{{ import_report.log_id }}
       {% if import_report.archive_path %}· 原始文件已存档{% endif %}
-      {% if manga_total is not none %}· 库里现在有 <strong>{{ manga_total }}</strong> 条漫画{% endif %}
+      {% if manga_total is not none %}· 库中共有 <strong>{{ manga_total }}</strong> 条漫画{% endif %}
     </small></p>
     {% if import_report.errors %}
       <h5>导入错误（前 {{ import_report.errors|length }} 条）</h5>
@@ -127,45 +127,45 @@
             <td>{{ report.requests }} 次 / {{ report.elapsed }} 秒
               <small>（单页固定 {{ report.page_size }} 条，全量一路翻到末页）</small></td></tr>
         <tr><th>停止原因</th><td>{{ report.stop_reason or '—' }}
-              <small>（这次把远端确认到：{{ report.verification }}）</small></td></tr>
+              <small>（远端确认情况：{{ report.verification }}）</small></td></tr>
         {% if report.auth_note %}
           <tr><th>认证</th><td>{{ report.auth_note }}</td></tr>
         {% endif %}
         <tr><th>网络</th>
             <td>{% if report.proxy %}走代理 <code>{{ report.proxy }}</code>
-              <br><small>这次同步的每个请求（包括登录）都走了这个代理。</small>
+              <br><small>本次同步的每个请求（包括登录）都走了这个代理。</small>
               {% else %}直连{% endif %}
             </td></tr>
         <tr><th>待导入</th>
             <td>{{ report.import_items }} 条<small>（已取消收藏的不算）</small></td></tr>
         {% if not report.sort_verified %}
           <tr><th>排序</th>
-              <td><span style="color:#d97706">这次没能确认「新收藏在头部」</span>
-                <small>{{ '，已自动改跑全量，所以没有漏数据' if report.fell_back_to_full else '，建议改跑一次全量' }}</small></td></tr>
+              <td><span style="color:#d97706">本次未能确认「新收藏在头部」</span>
+                <small>{{ '，已自动改为全量，不会漏数据' if report.fell_back_to_full else '，建议改跑一次全量' }}</small></td></tr>
         {% endif %}
         {% if report.status == 'partial' %}
           <tr><th>不完整</th>
-              <td><span style="color:#d97706">有页面没抓到，这次不会标记取消收藏</span>
+              <td><span style="color:#d97706">有页面未抓到，本次不标记取消收藏</span>
                 {% for line in report.sync_errors %}<br><small>{{ line }}</small>{% endfor %}</td></tr>
         {% endif %}
         {% if report.removed %}
           <tr><th>取消收藏</th>
-              <td><small>这 {{ report.removed }} 条只在状态库里打标记，<strong>不会</strong>从 OmniShelf 里删掉。</small></td></tr>
+              <td><small>这 {{ report.removed }} 条只在状态库中打标记，<strong>不会</strong>从 OmniShelf 里删掉。</small></td></tr>
         {% endif %}
         <tr><th>状态库</th>
             <td><code>{{ report.store_file }}</code>（{{ report.store_mb }} MB）
-              {% if not report.include_raw %}<br><small>没留接口原始返回（导入用不到，文件能小一大半）</small>{% endif %}</td></tr>
+              {% if not report.include_raw %}<br><small>未保留接口原始返回（导入用不到，文件可小一半以上）</small>{% endif %}</td></tr>
         <tr><th>导入文件</th>
             <td><code>{{ report.import_file }}</code>（{{ report.import_mb }} MB）</td></tr>
       </tbody>
     </table>
 
     <p><small>
-      导入文件就是 importer <code>{{ importer }}</code> 认的格式，可以直接到
+      导入文件即 importer <code>{{ importer }}</code> 认的格式，可到
       <a href="/upload">上传</a> 页手动导入。
-      入库判重靠漫画自己的编号（<code>comicId</code>），所以重复导入同一批只会「未变化」。
-      收藏夹上被取消收藏的作品<strong>不会</strong>从库里删掉（导入接口只新增/更新）。
-      接口不提供收藏时间，也不给「最新话 / 源站更新时间」，所以这几项入库时是空的。
+      导入按漫画自身的编号（<code>comicId</code>）判重，重复导入同一批只会「未变化」。
+      收藏夹中被取消收藏的作品<strong>不会</strong>从库中删除（导入只新增/更新）。
+      接口不提供收藏时间，也没有「最新话 / 源站更新时间」，这几项导入后为空。
     </small></p>
 
     {% if report.notes %}
@@ -173,12 +173,12 @@
         <summary>同步明细（{{ report.notes|length }} 行）</summary>
         <pre style="max-height:16rem;overflow:auto;font-size:.78rem">{{ report.notes|join('\n') }}</pre>
       </details>
-      <p><small>这份明细只在内存里，关掉页面就没了；每一页都同时记进了宿主的运行日志，
-        重启也查得到：<a href="/logs?plugin=picamanga_fetch&follow=0">看日志</a>。</small></p>
+      <p><small>此处明细仅在内存中，关闭页面后不可见；每页明细同时记录在宿主运行日志中，
+        重启后仍可查看：<a href="/logs?plugin=picamanga_fetch&follow=0">查看日志</a>。</small></p>
     {% endif %}
     {% if json_text %}
       <details>
-        <summary>导入文件预览（前几条，可以直接全选复制）</summary>
+        <summary>导入文件预览（前几条，可全选复制）</summary>
         <textarea readonly rows="12" style="width:100%;font-size:.72rem">{{ json_text }}</textarea>
       </details>
     {% endif %}
@@ -191,9 +191,9 @@
   <h3 style="margin-top:0">哔咔收藏夹抓取
     <small style="font-weight:400">· 插件 id <code>picamanga_fetch</code></small></h3>
   <p style="font-size:.86rem">
-    把你自己在哔咔收藏夹里的<strong>漫画</strong>同步下来，存成可以直接导入的 JSON，
-    再用内置 importer <code>{{ importer }}</code> 入库（和上传页/CLI 同一条链路：来源判重、
-    写 import_logs、原始文件存档）。书名 / 作者 / 题材 / 是否完结 / 话数 / 封面 / 热度都会带上。
+    把自己在哔咔收藏夹中的<strong>漫画</strong>同步为可直接导入的 JSON，
+    再用内置 importer <code>{{ importer }}</code> 导入（与上传页/命令行走同一导入链路）。
+    书名 / 作者 / 题材 / 是否完结 / 话数 / 封面 / 热度都会入库。
   </p>
 
   <form method="post" action="/plugins/picamanga_fetch">
@@ -201,13 +201,13 @@
     <div class="grid">
       <label>接口地址
         <input type="text" name="host" value="{{ form.host }}" placeholder="{{ default_host }}">
-        <small>一般不用改；填域名就行，带路径的整条 URL 也认（只取前面的域名）。</small>
+        <small>一般无需修改；填域名即可，带路径的完整地址也支持（只取其中的域名）。</small>
       </label>
       <label>token
         <input type="text" name="token" value="{{ form.token }}" placeholder="登录令牌">
-        <small>优先用这个；令牌会存进本地配置，口令不会。留空就用已经存着的那个。<br>
-          怎么拿：抓包 App/网页的请求头 <code>authorization: &lt;token&gt;</code>，
-          复制值粘进来（带上 <code>Bearer</code> 也没关系，会自己去掉）。</small>
+        <small>优先使用令牌；令牌会保存到本地配置，密码不会。留空则使用已保存的令牌。<br>
+          获取方式：抓取 App/网页请求头中的 <code>authorization: &lt;token&gt;</code>，
+          复制值粘贴到此处（带 <code>Bearer</code> 前缀也可，会自动去除）。</small>
       </label>
     </div>
 
@@ -215,16 +215,16 @@
       <label class="pm-switch">
         <input type="checkbox" name="email_password" value="on"
                {% if not form.token and form.email %}checked{% endif %}>
-        没有令牌，改用<strong>邮箱和口令</strong>登录（登录后换到的令牌会留下，口令不会）
+        没有令牌，改用<strong>邮箱和口令</strong>登录（登录后换到的令牌会保存，口令不会）
       </label>
       <div class="grid pm-auth">
         <label>邮箱
           <input type="text" name="email" value="{{ form.email }}" autocomplete="username"
-                 placeholder="哔咔账号（就是一个邮箱）">
+                 placeholder="哔咔账号（邮箱）">
         </label>
         <label>口令
           <input type="password" name="password" autocomplete="current-password"
-                 placeholder="只在本次同步里用，不会存下来">
+                 placeholder="仅在本次同步中使用，不会保存">
         </label>
       </div>
     </div>
@@ -237,7 +237,7 @@
           <option value="full" {% if form.mode == 'full' %}selected{% endif %}>
             全量（所有页都过一遍，顺便标出已取消收藏的）</option>
         </select>
-        <small>增量快（通常一两次请求）；全量慢，但能发现老条目的变化和取消收藏。</small>
+        <small>增量较快（通常一两次请求）；全量较慢，但能发现老条目的变化和取消收藏。</small>
       </label>
       <label>列表排序
         <select name="sort">
@@ -245,25 +245,25 @@
             <option value="{{ value }}" {% if form.sort == value %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
-        <small>增量只能用「{{ sort_label[newest_first_sort] }}」，别的排序下新收藏不一定在头部会漏数据；
-          想按热度/旧到新浏览就选<strong>全量</strong>。</small>
+        <small>增量只能用「{{ sort_label[newest_first_sort] }}」，其他排序下新收藏不一定在头部、会漏数据；
+          想按热度/旧到新浏览请选<strong>全量</strong>。</small>
       </label>
     </div>
 
     <div class="grid">
       <label>翻页间隔（秒）
         <input type="number" name="delay" min="0" max="10" step="0.05" value="{{ form.delay }}">
-        <small>默认 0.15；不着急可以调大一点，被风控了就调大。</small>
+        <small>默认 0.15 秒；不急时可适当调大，遇到风控时建议调大。</small>
       </label>
       <label>请求超时（秒）
         <input type="number" name="timeout" min="5" max="120" value="{{ form.timeout }}">
-        <small>单次请求等多久算失败（默认 30）。</small>
+        <small>单次请求超过该时长视为失败（默认 30）。</small>
       </label>
       <label>代理
         <input type="text" name="proxy" value="{{ form.proxy }}"
                placeholder="http://127.0.0.1:10809">
-        <small>直连不通时填本地代理地址，填了这次就全程只走它（留空 = 不指定，一般是直连）。
-          只写 <code>IP:端口</code> 按 HTTP 代理对待；SOCKS 要写全，如
+        <small>直连不通时填写本地代理地址；填写后本次同步的所有请求都走该代理（留空为不指定，一般即直连）。
+          只写 <code>IP:端口</code> 按 HTTP 代理处理；SOCKS 需写全协议，如
           <code>socks5://127.0.0.1:10808</code>。</small>
       </label>
     </div>
@@ -271,7 +271,7 @@
     <input type="hidden" name="has_raw" value="1">
     <label>
       <input type="checkbox" name="include_raw" value="on" {% if form.include_raw %}checked{% endif %}>
-      状态库里保留接口返回的全部字段（文件会大不少；导入用不到）
+      状态库中保留接口返回的全部字段（导入用不到，文件会大不少）
     </label>
 
     <div class="pm-actions">
@@ -279,8 +279,8 @@
       <button type="submit" name="action" value="fetch_import" class="secondary">同步并导入</button>
     </div>
     <small>
-      同步在后台跑，上方的进度条会实时显示翻到第几页，这期间可以去别的页面。
-      第一次用请先抓一次<strong>全量</strong>把整个收藏夹落下来，以后用增量就很快。
+      同步在后台运行，进度条实时显示进度。
+      首次使用请先跑一次<strong>全量</strong>同步整个收藏夹，之后用增量即可，速度很快。
     </small>
   </form>
 
@@ -294,8 +294,8 @@
         <label>默认 token <input type="text" name="token" value="{{ config.token }}"></label>
         <label>默认邮箱 <input type="text" name="email" value="{{ config.email }}"></label>
       </div>
-      <p><small>口令<strong>不会</strong>存进配置：以后每次同步时现填口令，
-        或者粘一个长期有效的 token。</small></p>
+      <p><small>口令<strong>不会</strong>保存到配置：以后每次同步时现填口令，
+        或粘贴一个长期有效的 token。</small></p>
       <div class="grid">
         <label>默认同步方式
           <select name="mode">
@@ -329,8 +329,8 @@
     数据目录：<code>{{ data_dir }}</code>。
     {% if last.fetched_at %}上次同步 {{ last.fetched_at }}（{{ last.mode == 'full' and '全量' or '增量' }}，
       远端 {{ last.remote_total }} 条 / 本地 {{ last.local_total }} 条）。{% else %}
-      还没有同步过。{% endif %}
-    {% if manga_total is not none %}库里现在有 <strong>{{ manga_total }}</strong> 条漫画。{% endif %}
+      尚未同步过。{% endif %}
+    {% if manga_total is not none %}库中共有 <strong>{{ manga_total }}</strong> 条漫画。{% endif %}
   </p>
   {% if files %}
     <table role="grid">
@@ -347,11 +347,11 @@
       </tbody>
     </table>
   {% else %}
-    <p><small>目录里还没有文件。填好上面的表单点「开始同步」就会生成。</small></p>
+    <p><small>目录中还没有文件。填写上方表单并点击「开始同步」即可生成。</small></p>
   {% endif %}
 
   <details>
-    <summary>命令行也能干同样的事</summary>
+    <summary>命令行用法</summary>
     <pre style="font-size:.78rem">omnishelf plugin picamanga_fetch fetch_import \
   --token &lt;你的登录令牌&gt; \
   --mode full                # 日常刷新用 --mode incremental（默认）

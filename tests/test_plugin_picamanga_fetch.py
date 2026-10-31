@@ -942,7 +942,7 @@ def test_broken_sort_premise_falls_back_to_a_full_scan(
     client.post(f"/plugins/{PLUGIN_ID}", data=fetch_form(mode="incremental"))
     html = wait_for_sync(client)
 
-    assert "这次没能确认「新收藏在头部」" in html and "已自动改跑全量" in html
+    assert "本次未能确认「新收藏在头部」" in html and "已自动改为全量" in html
     assert "新增 1" in html, "那条新收藏掉在头部之后，只翻一页就静默漏掉了"
     # 一次头部扫描（1 页）+ 全量重扫（2 页）
     assert len(favourite_calls(calls)) == 3, calls
@@ -974,7 +974,7 @@ def test_failed_page_is_reported_as_incomplete(
     client.post(f"/plugins/{PLUGIN_ID}", data=fetch_form(mode="full"))
     html = wait_for_sync(client)
     assert "同步完成" in html and "第 2 页抓取失败" in html
-    assert "有页面没抓到" in html
+    assert "有页面未抓到" in html
     assert read_json(store_file(settings_with_repo_plugins))["total"] == 3
     assert read_json(import_file(settings_with_repo_plugins))["total"] == 3
 
@@ -991,7 +991,7 @@ def test_failed_page_never_marks_uncollected(
     client.post(f"/plugins/{PLUGIN_ID}", data=fetch_form(mode="full"))
     html = wait_for_sync(client)
     text = status_text(html)
-    assert "第 2 页抓取失败" in text and "有页面没抓到，这次不会标记取消收藏" in text
+    assert "第 2 页抓取失败" in text and "有页面未抓到，本次不标记取消收藏" in text
     assert "<th>取消收藏</th>" not in html          # 没有「这次标记了 N 条取消收藏」那一行
     assert read_json(store_file(settings_with_repo_plugins))["removed_total"] == 0
 

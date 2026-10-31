@@ -1,8 +1,8 @@
 {# Steam 收藏抓取插件页。宿主把这段塞进站点布局；HTMX 由布局提供。 #}
 <h2>{{ plugin.title }}</h2>
 <p><small>
-  把你的 Steam <b>游戏库（已拥有）</b>和<b>愿望单</b>抓下来，一键导入「游戏」书架；
-  也可以只抓取存成快照，之后到上传页手动导入。
+  将 Steam <b>游戏库（已拥有）</b>和<b>愿望单</b>抓取为快照，一键导入「游戏」书架；
+  也可以只抓取保存快照，之后到上传页手动导入。
 </small></p>
 
 {% if job %}
@@ -57,7 +57,7 @@
       <summary>进度明细（{{ job.notes|length }} 行）</summary>
       <pre style="max-height:12rem;overflow:auto;font-size:.78rem">{{ job.notes|join('\n') }}</pre>
     </details>
-    <p><small>抓取在后台跑，这一栏每 {{ poll_seconds }} 秒自己刷新一次。</small></p>
+    <p><small>抓取在后台运行，此栏每 {{ poll_seconds }} 秒自动刷新一次。</small></p>
   {% endif %}
   {% if job.state == 'error' %}
     <p><strong style="color:#dc2626">{{ job.error }}</strong></p>
@@ -73,7 +73,7 @@
   <div class="grid">
     <label>Steam Web API Key（{{ auth_display }}）
       <input type="password" name="api_key" autocomplete="off"
-             placeholder="{{ '留空 = 沿用已存的' if has_key else 'steamcommunity.com/dev/apikey 申请的那串' }}">
+             placeholder="{{ '留空 = 沿用已存的' if has_key else '在 steamcommunity.com/dev/apikey 申请' }}">
     </label>
     <label aria-label="清除">
       <input type="checkbox" name="clear_key"> 清除已存的 Key
@@ -81,7 +81,7 @@
   </div>
 
   <div class="grid">
-    <label>SteamID64（个人主页那串 17 位数字，优先用它）
+    <label>SteamID64（个人主页的 17 位数字，优先使用）
       <input type="text" name="steamid64" value="{{ config.steamid64 }}" placeholder="76561197960…">
     </label>
     <label>vanity（自定义 URL 名，SteamID64 留空时用它解析）
@@ -106,9 +106,9 @@
     <label>代理（直连不通时填本地代理地址）
       <input type="text" name="proxy" value="{{ config.proxy }}"
              placeholder="http://127.0.0.1:10809">
-      <small>填了就全程只走它（api 与 store 两个域名都走）；留空 = 不指定，
-        按系统/环境变量里的代理设置。只写 <code>IP:端口</code> 按 HTTP 代理对待；
-        SOCKS 要写全，如 <code>socks5://127.0.0.1:10808</code>。</small>
+      <small>填写后本次抓取的所有请求都走该代理（api 与 store 两个域名都走）；留空为不指定，
+        按系统/环境变量中的代理设置。只写 <code>IP:端口</code> 按 HTTP 代理处理；
+        SOCKS 需写全协议，如 <code>socks5://127.0.0.1:10808</code>。</small>
     </label>
     <label>
       <input type="checkbox" name="force_refresh">
@@ -142,7 +142,7 @@
   </tbody>
 </table>
 {% else %}
-  <p><small>还没有快照。点「只抓取」或「抓取并导入」试试。</small></p>
+  <p><small>还没有快照。点「只抓取」或「抓取并导入」即可生成。</small></p>
 {% endif %}
 
 <p><small>命令行等价：

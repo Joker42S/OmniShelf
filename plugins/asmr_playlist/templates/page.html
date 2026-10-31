@@ -62,11 +62,11 @@
           <pre style="max-height:12rem;overflow:auto;font-size:.78rem">{{ job.notes|join('\n') }}</pre>
         </details>
       {% endif %}
-      <p><small>抓取在后台跑，这一栏每 {{ poll_seconds }} 秒自己刷新一次。
-        切到别的页面也没关系，回来还能看到进度。</small></p>
+      <p><small>抓取在后台运行，此栏每 {{ poll_seconds }} 秒自动刷新一次，
+        期间可切换页面，进度不会丢失。</small></p>
     {% elif job.state == 'error' %}
       <p><strong style="color:#dc2626">{{ job.error }}</strong></p>
-      <p><small>已经抓到的部分不会丢（快照按页累积），稍后可以接着用增量抓取续抓。</small></p>
+      <p><small>已抓取的数据不会丢失（快照按页累积），稍后可用增量抓取续抓。</small></p>
     {% endif %}
   </article>
 
@@ -75,8 +75,8 @@
   <header><strong>导入到 OmniShelf</strong> <small>importer <code>{{ import_report.importer }}</code></small></header>
   {% if import_report.error %}
     <p><strong>导入失败：</strong>{{ import_report.error }}</p>
-    <p><small>抓取本身没白跑：快照已经在 <code>{{ import_report.path }}</code>，
-      可以稍后到上传页选 importer <code>{{ importer }}</code> 手动导入。</small></p>
+    <p><small>已抓取的数据不会丢失：快照已保存至 <code>{{ import_report.path }}</code>，
+      可稍后到上传页选择 importer <code>{{ importer }}</code> 手动导入。</small></p>
   {% else %}
     <p>
       共 {{ import_report.total }} 条 ·
@@ -118,7 +118,7 @@
             <td><strong>{{ report.fetched_count }}</strong> 条（其中新增 {{ report.new_count }} 条）</td></tr>
         <tr><th>快照累计</th>
             <td><strong>{{ report.item_count }}</strong> 条
-              <small>（抓之前 {{ report.previous_count }} 条；增量抓取是累积的，反复抓会不断合并/覆盖）</small></td></tr>
+              <small>（抓取前 {{ report.previous_count }} 条；快照是累积的，重复抓取会不断合并/覆盖）</small></td></tr>
         <tr><th>接口报告总数</th>
             <td>{{ report.reported_count if report.reported_count is not none else '—' }} 个作品
               {% if report.total_pages %}· 每页 {{ report.page_size }} · 共 {{ report.total_pages }} 页{% endif %}</td></tr>
@@ -130,7 +130,7 @@
         {% endif %}
         {% if report.target == 'favorites' %}
           <tr><th>本人评分</th>
-              <td>{{ report.rated_count }} 条带你打过的分<small>（导入成条目的评分；没打分的不动评分）</small></td></tr>
+              <td>{{ report.rated_count }} 条带有评分<small>（导入为条目的评分；未评分的条目不受影响）</small></td></tr>
         {% endif %}
         <tr><th>耗时</th><td>{{ report.elapsed }} 秒</td></tr>
         <tr><th>代理</th>
@@ -152,10 +152,10 @@
       <p><small>快照已经覆盖到最后一页，增量抓取以后只翻最前面几页就能停。</small></p>
     {% endif %}
 
-    <p><small>
-      快照就是 importer <code>{{ importer }}</code> 认的格式，可以直接到
+      <p><small>
+      快照即 importer <code>{{ importer }}</code> 认的格式，可到
       <a href="/upload">上传</a> 页手动导入。
-      列表里被移除的作品<strong>不会</strong>从库里删掉（导入接口只新增/更新）。
+      列表中被移除的作品<strong>不会</strong>从库中删除（导入只新增/更新）。
     </small></p>
 
     {% if report.notes %}
@@ -181,9 +181,9 @@
   <h3 style="margin-top:0">ASMR.ONE 收藏抓取
     <small style="font-weight:400">· 插件 id <code>asmr_playlist</code></small></h3>
   <p style="font-size:.86rem">
-    把 asmr.one 的<strong>公开播放列表</strong>或<strong>私人收藏</strong>抓成可直接导入的 JSON，再用内置 importer
-    <code>{{ importer }}</code> 入库（和上传页/CLI 同一条链路：来源判重、写 import_logs、原始文件存档）。
-    接口一次给一页<strong>作品完整信息</strong>（社团/声优/标签/时长/语言版本/评分…），所以不用逐条补详情。
+    把 asmr.one 的<strong>公开播放列表</strong>或<strong>私人收藏</strong>抓取为可直接导入的 JSON，
+    再用内置 importer <code>{{ importer }}</code> 导入（与上传页/命令行走同一导入链路）。
+    接口每次返回一页作品的完整信息（社团/声优/标签/时长/语言版本/评分等），无需逐条补取详情。
   </p>
 
   <form method="post" action="/plugins/asmr_playlist">
@@ -196,11 +196,11 @@
       <label>播放列表 ID
         <input type="text" name="playlist_id" value="{{ form.playlist_id }}"
                placeholder="播放列表 URL 中的 UUID">
-        <small>asmr.one 播放列表页 URL 里的那串 UUID（抓私人收藏时用不到）。</small>
+        <small>asmr.one 播放列表页地址中的 UUID（抓私人收藏时用不到）。</small>
       </label>
       <label>本地代理
         <input type="text" name="proxy" value="{{ form.proxy }}" placeholder="http://127.0.0.1:10809">
-        <small>留空 = 直连；代理连不上会自动回退直连一次。</small>
+        <small>留空为直连；代理不可用时自动回退直连。</small>
       </label>
     </div>
 
@@ -218,14 +218,14 @@
         </label>
         <label>密码
           <input type="password" name="password" autocomplete="current-password"
-                 placeholder="只在本次抓取里用，不会存下来">
+                 placeholder="仅在本次抓取中使用，不会保存">
         </label>
         <label>authorization
           <input type="text" name="authorization" value="{{ form.authorization }}"
                  placeholder="Bearer 令牌">
-          <small>优先用这个；令牌会存进本地配置，密码不会。<br>
-            怎么拿：浏览器开发者工具（F12）→ Network → 请求头里的
-            <code>Authorization: Bearer &lt;token&gt;</code>，复制 token 粘进来。</small>
+          <small>优先使用令牌；令牌会保存到本地配置，密码不会。<br>
+            获取方式：浏览器开发者工具（F12）→ Network → 请求头
+            <code>Authorization: Bearer &lt;token&gt;</code>，复制 token 粘贴到此处。</small>
         </label>
       </div>
     </div>
@@ -239,11 +239,11 @@
       </label>
       <label>每页条数
         <input type="number" name="page_size" min="1" max="100" value="{{ form.page_size }}">
-        <small>接口上限 100（实测超过会 400）。越大请求越少、越快。</small>
+        <small>接口上限为 100；数值越大，请求次数越少、速度越快。</small>
       </label>
       <label>请求间隔（秒）
         <input type="number" name="delay" min="0" max="10" step="0.1" value="{{ form.delay }}">
-        <small>默认 0.5；asmr.one 是公开 JSON 接口，不必像豆瓣那样等很久。</small>
+        <small>默认 0.5 秒。</small>
       </label>
     </div>
 
@@ -258,10 +258,10 @@
     </div>
     <small>
       <strong>增量</strong>适合日常更新（通常只翻 1~2 页）；<strong>全量</strong> =
-      取消上面的勾 + 页码 <code>0</code>；<strong>指定范围</strong> = 填页码（可配合增量）。
+      取消上方勾选 + 页码 <code>0</code>；<strong>指定范围</strong> = 填页码（可配合增量）。
       <br>
-      抓取在后台跑，上方的进度条会实时显示翻到第几页，这期间可以去别的页面。
-      每页约 {{ form.delay }} 秒 + 请求时间：每页 100 条时，几千条的列表要翻几十页。
+      抓取在后台运行，进度条实时显示进度；每页约需 {{ form.delay }} 秒加请求时间，
+      列表较大时耗时相应增加。
     </small>
   </form>
 
@@ -286,8 +286,8 @@
           <label>默认 authorization <input type="text" name="authorization" value="{{ config.authorization }}"></label>
         </div>
       </div>
-      <p><small>密码<strong>不会</strong>存进配置：勾了「默认抓私人收藏」以后，每次抓取时现填密码，
-        或者粘一个长期有效的 authorization。</small></p>
+      <p><small>密码<strong>不会</strong>保存到配置：勾选「默认抓私人收藏」后，每次抓取时现填密码，
+        或粘贴一个长期有效的 authorization。</small></p>
       <div class="grid">
         <label>默认页码 <input type="text" name="pages" value="{{ config.pages }}"></label>
         <label>默认每页条数 <input type="number" name="page_size" min="1" max="100" value="{{ config.page_size }}"></label>
@@ -302,8 +302,7 @@
       </label>
       <label>
         <input type="checkbox" name="keep_raw" {% if config.keep_raw %}checked{% endif %}>
-        保留接口返回的全部字段（<code>keep_raw</code>；不勾就丢掉入库用不到的那几个站内统计字段，
-        快照能小三成）
+        保留接口返回的全部字段（<code>keep_raw</code>；默认丢弃导入用不到的站内统计字段，快照约小三成）
       </label>
       <button type="submit">保存默认值</button>
     </form>
@@ -313,8 +312,8 @@
 <article class="plugin-body">
   <h3 style="margin-top:0">已有快照</h3>
   <p style="font-size:.82rem">
-    数据目录：<code>{{ data_dir }}</code>。一个抓取目标一个文件，反复抓就是不断累积/覆盖。
-    {% if asmr_total is not none %}库里现在有 <strong>{{ asmr_total }}</strong> 条 asmr。{% endif %}
+    数据目录：<code>{{ data_dir }}</code>。每个抓取目标一个文件，重复抓取会持续累积/覆盖。
+    {% if asmr_total is not none %}库中共有 <strong>{{ asmr_total }}</strong> 条 asmr。{% endif %}
   </p>
   {% if snapshots %}
     <table role="grid">
@@ -345,11 +344,11 @@
       </tbody>
     </table>
   {% else %}
-    <p><small>还没有快照。填好上面的表单点「开始抓取」就会生成。</small></p>
+    <p><small>还没有快照。填写上方表单并点击「开始抓取」即可生成。</small></p>
   {% endif %}
 
   <details>
-    <summary>命令行也能干同样的事</summary>
+    <summary>命令行用法</summary>
     <pre style="font-size:.78rem">omnishelf plugin asmr_playlist fetch_import \
   --playlist-id &lt;你的播放列表 UUID&gt; \
   --proxy http://127.0.0.1:10809 \
