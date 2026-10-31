@@ -5,7 +5,7 @@
 id = "kind_chart"
 title = "分类统计图"
 version = "1.0.0"
-description = "按 kind 统计条目数量，画成条状图（插件模板 / 示例）"
+description = "示例插件：统计各类型条目数量并画成条形图"
 author = "OmniShelf"
 entry = "plugin.py"       # 相对本目录；可写 "plugin.py:KindChart" 指定类名
 requires = ["query"]      # 声明用到的宿主接口，宿主目前提供：query

@@ -3,7 +3,7 @@
 id = "music_import"
 title = "本地音乐导入"
 version = "1.0.0"
-description = "用系统选择框挑本地文件夹或多个音乐文件，读标签生成清单后直接入库"
+description = "把本地文件夹里的音乐导入到音乐书架"
 author = "OmniShelf"
 entry = "plugin.py"
 # audio：读本地音乐文件标签（宿主的 scan_audio / audio_suffixes）

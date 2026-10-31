@@ -1,0 +1,287 @@
+{# 网易云音乐收藏导入插件页。宿主把这段塞进站点布局；HTMX 由布局提供。 #}
+<h2>{{ plugin.title }}</h2>
+<p><small>
+  用本机 <code>ncm-cli</code> 抓取网易云「我喜欢的音乐」歌单（有快照时默认增量），
+  一键导入「音乐」书架；也可以只抓取存成快照，之后到上传页手动导入。
+  前提：<code>ncm-cli</code> 已安装，并已用它自己的 <code>ncm-cli configure</code>
+  保存好 appid 与私钥（本插件不接触这些凭据）。
+</small></p>
+
+<section id="nm-login">
+  <h3>登录状态</h3>
+  {% if status.error %}
+    <p><strong style="color:#dc2626">{{ status.error }}</strong></p>
+    <p><small>先安装并配置 ncm-cli：
+      <code>npm install -g @music163/ncm-cli &amp;&amp; ncm-cli configure</code>。</small></p>
+  {% elif status.logged_in %}
+    <p>已登录：{{ status.message or '状态正常' }}</p>
+  {% else %}
+    <p>未登录：{{ status.message or '需要扫码登录' }}</p>
+  {% endif %}
+</section>
+
+{% if notice %}<p><strong style="color:#15803d">{{ notice }}</strong></p>{% endif %}
+{% if error %}<p><strong style="color:#dc2626">{{ error }}</strong></p>{% endif %}
+
+{% if job %}
+{# 进度条：运行中时这一整块每 poll_seconds 秒被它自己替换一次 #}
+<section id="nm-job"{% if job.state == 'running' %}
+         hx-get="/plugins/{{ plugin.id }}"
+         hx-trigger="every {{ poll_seconds }}s"
+         hx-select="#nm-job"
+         hx-swap="outerHTML"{% endif %}>
+  <h3>
+    {% if job.state == 'running' %}{% if job.kind == 'login' %}等待扫码登录…{% else %}抓取中…{% endif %}
+    {% elif job.state == 'error' %}<span style="color:#dc2626">任务失败</span>
+    {% else %}{% if job.kind == 'login' %}登录完成{% else %}抓取结束{% endif %}{% endif %}
+    <small style="font-weight:400">· {{ job.label }} · {{ job.elapsed }} 秒</small>
+  </h3>
+
+  {% if job.prompt %}
+    {% set qr_url = job.prompt.qr_url or job.prompt.url %}
+    <div class="nm-login">
+      {% if qr_url %}
+      <div class="nm-qr-card">
+        <div class="nm-qr" id="nm-login-qr" data-url="{{ qr_url }}"
+             role="img" aria-label="网易云音乐登录二维码" hx-preserve="true"></div>
+        <p><small>用网易云音乐 App 扫码</small></p>
+      </div>
+      {% endif %}
+      <div class="nm-login-text">
+        <p><strong>或在浏览器打开一次性登录链接：</strong><br>
+          <a href="{{ job.prompt.url }}" target="_blank" rel="noreferrer noopener">{{ job.prompt.url }}</a></p>
+        <p><small>{{ job.prompt.message }}二维码和链接都只用于本次登录，请勿分享或写进日志。</small></p>
+      </div>
+    </div>
+  {% endif %}
+
+  <p><small>{{ job.note }}</small></p>
+
+  {% if job.report %}
+    {% set pl = job.report.playlist %}
+    <ul>
+      <li>歌单：{{ pl.name or '(未命名)' }}
+        {% if pl.track_count is not none %}（接口元数据 {{ pl.track_count }} 首）{% endif %}</li>
+      {% if job.report.empty %}
+        <li><em>没有抓到歌曲（歌单为空或接口返回空），未写快照。</em></li>
+      {% else %}
+        <li>方式：{% if job.report.mode == 'incremental' %}增量
+            {% if job.report.complete %}（已读完整份歌单）{% else %}（遇到整页已知歌曲就停）{% endif %}
+          {% else %}全量{% endif %}
+          · 本次检查 {{ job.report.checked }} 首 · 新增 {{ job.report.new_count }} 首</li>
+        <li>抓取：快照共 {{ job.report.count }} 首（去重后 {{ job.report.unique_count }} 首）
+          · {{ job.report.requests }} 次请求 · {{ job.report.elapsed }} 秒</li>
+        <li>快照：{% if job.report.snapshot_written %}<code>{{ job.report.path.split("/")|last }}</code>
+          （importer <code>{{ importer }}</code>）{% else %}<em>没有新歌，未改动</em>{% endif %}</li>
+      {% endif %}
+    </ul>
+    {% set imp = job.report['import'] %}
+    {% if imp %}
+      <table role="grid">
+        <thead><tr><th>共</th><th>新增</th><th>更新</th><th>未变化</th><th>跳过</th><th>错误</th></tr></thead>
+        <tbody><tr>
+          <td>{{ imp.total }}</td><td>{{ imp.inserted }}</td><td>{{ imp.updated }}</td>
+          <td>{{ imp.unchanged }}</td><td>{{ imp.skipped }}</td><td>{{ imp.error_count }}</td>
+        </tr></tbody>
+      </table>
+      <p><small>导入日志 #{{ imp.log_id }}</small></p>
+    {% endif %}
+    {% if job.report.import_error %}
+      <p><strong style="color:#dc2626">导入失败：{{ job.report.import_error }}</strong>
+        <br><small>快照没丢，可到上传页选 importer <code>{{ importer }}</code> 手动导入。</small></p>
+    {% endif %}
+  {% endif %}
+
+  {% if job.state == 'running' and job.notes %}
+    <details open>
+      <summary>进度明细（{{ job.notes|length }} 行）</summary>
+      <pre style="max-height:12rem;overflow:auto;font-size:.78rem">{{ job.notes|join('\n') }}</pre>
+    </details>
+    <p><small>任务在后台跑，这一栏每 {{ poll_seconds }} 秒自己刷新一次。</small></p>
+  {% endif %}
+  {% if job.state == 'error' %}
+    <p><strong style="color:#dc2626">{{ job.error }}</strong></p>
+  {% endif %}
+</section>
+{% endif %}
+
+<form method="post" action="/plugins/{{ plugin.id }}">
+  <input type="hidden" name="form" value="save">
+
+  <div class="nm-options">
+    <label>
+      每次请求条数（1~{{ max_page_size }}，默认 {{ config.page_size }}）
+      <input type="number" name="page_size" min="1" max="{{ max_page_size }}"
+             value="{{ config.page_size }}">
+      <small>只影响抓取速度，不影响结果；1 万首歌单按 500 条约 21 次请求。
+        接口元数据里的 trackCount 可能过期，结果以实际翻到的页为准。</small>
+    </label>
+    <label class="nm-full-option">
+      <input type="checkbox" name="full" value="1">
+      <span>
+        全量刷新
+        <small>默认增量：已有快照时只往前取新歌（整页都是已知歌曲就停）。
+          勾选后整份重抓，能发现取消收藏的歌，但 1 万首约 20 多次请求。</small>
+      </span>
+    </label>
+  </div>
+
+  <p><small>
+    未登录时先点「扫码登录」：页面会显示二维码，用网易云音乐 App 扫一下即可；
+    也可以点下面的链接在浏览器里打开（最多等 {{ login_timeout }} 秒，确认后自动继续）。
+    二维码和登录链接都不会写进日志或快照。
+    增量依赖「我喜欢的音乐」按收藏时间倒序（新歌在最前）；首次、快照损坏或换了歌单会
+    自动回到全量。音乐按「标题 + 专辑 + 艺术家」判重，
+    同一首歌在歌单里出现多次、或不同歌曲 id 的重复版本会被合并（external id 全部保留）。
+  </small></p>
+
+  <div class="nm-actions">
+    <button type="submit" name="action" value="save" class="secondary">保存默认值</button>
+    <button type="submit" name="action" value="login">扫码登录</button>
+    <button type="submit" name="action" value="sync">只抓取（不入库）</button>
+    <button type="submit" name="action" value="sync_import">抓取并导入</button>
+  </div>
+</form>
+
+<h3>已抓快照（{{ data_dir }}）</h3>
+{% if snapshots %}
+<table role="grid">
+  <thead><tr><th>文件</th><th>歌单</th><th>条数</th><th>去重后</th><th>抓取时间</th><th>导入用 importer</th><th>大小</th></tr></thead>
+  <tbody>
+  {% for row in snapshots %}
+    <tr>
+      <td>{{ row.file }}</td><td>{{ row.playlist }}</td><td>{{ row.count }}</td>
+      <td>{{ row.unique_count }}</td><td>{{ row.fetched_at }}</td>
+      <td><code>{{ row.importer }}</code></td><td>{{ row.size_kb }} KB</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <p><small>还没有快照。点「只抓取」或「抓取并导入」试试。</small></p>
+{% endif %}
+
+<p><small>命令行等价：
+  <code>omnishelf plugin netease_music status</code> /
+  <code>omnishelf plugin netease_music login</code> /
+  <code>omnishelf plugin netease_music sync --dry-run</code> /
+  <code>omnishelf plugin netease_music sync</code> /
+  <code>omnishelf plugin netease_music sync --full</code></small></p>
+
+<style>
+  .nm-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem 2rem;
+  }
+  /* 覆盖 Pico 的 label:has(checkbox) 宽度，避免在窄列里挤成一条 */
+  .nm-options > label {
+    flex: 1 1 20rem;
+    width: auto;
+    min-width: 0;
+    margin-bottom: 0;
+  }
+  .nm-full-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .nm-full-option > input {
+    flex: none;
+    margin: 0.35rem 0 0;
+  }
+  .nm-full-option > span {
+    min-width: 0;
+  }
+  /* Pico 会给 input 后面的 small 加负 margin；这里单独排版 */
+  .nm-full-option small {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--pico-muted-color);
+  }
+  .nm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: center;
+  }
+  .nm-actions button {
+    margin: 0;
+    width: auto;
+    flex: 1 1 auto;
+  }
+  .nm-login {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem 1.5rem;
+    margin: 0.75rem 0 1.25rem;
+  }
+  .nm-qr-card {
+    flex: 0 0 auto;
+    text-align: center;
+  }
+  .nm-qr-card p {
+    margin: 0.35rem 0 0;
+  }
+  /* 二维码始终白底黑码，深色主题下也能扫 */
+  .nm-qr {
+    width: 11rem;
+    min-height: 5rem;
+    padding: 0.75rem;
+    background: #fff;
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  }
+  .nm-qr svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .nm-login-text {
+    flex: 1 1 18rem;
+    min-width: 0;
+  }
+  .nm-login-text a {
+    word-break: break-all;
+  }
+</style>
+
+<script>{% include "qrcode.min.js" %}</script>
+
+<script>
+  // ncm-cli 只给一次性登录链接，二维码在浏览器里现画；链接本身仍是可点的兜底。
+  (function () {
+    function renderQr(root) {
+      var nodes = root.querySelectorAll('.nm-qr[data-url]');
+      for (var i = 0; i < nodes.length; i += 1) {
+        var el = nodes[i];
+        if (el.getAttribute('data-rendered') === '1') continue;
+        if (typeof qrcode !== 'function') return;
+        try {
+          var qr = qrcode(0, 'M');
+          qr.addData(el.getAttribute('data-url'));
+          qr.make();
+          el.innerHTML = qr.createSvgTag({
+            cellSize: 4,
+            margin: 2,
+            scalable: true,
+            alt: '网易云音乐登录二维码'
+          });
+          el.setAttribute('data-rendered', '1');
+        } catch (err) {
+          el.textContent = '二维码生成失败，请用旁边的链接登录。';
+        }
+      }
+    }
+    function boot() { renderQr(document); }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', boot);
+    } else {
+      boot();
+    }
+    // 等待扫码时 #nm-job 每 2 秒被 HTMX 换一次，换完要重画
+    document.body.addEventListener('htmx:afterSwap', boot);
+  })();
+</script>

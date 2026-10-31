@@ -286,17 +286,60 @@ td .quick-edit select {
   font-size: 0.85rem;
 }
 
-.plugin-meta {
+.plugin-desc {
+  margin-bottom: 0.5rem;
+}
+
+/* 作者 / 接口 / 加载时间 / 目录：一行一项，别挤成一条灰字 */
+.plugin-meta-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.5rem;
+  margin: 0.5rem 0;
   font-size: 0.85rem;
   color: var(--pico-muted-color);
+}
+
+.plugin-meta-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.plugin-meta-item dt {
+  flex: none;
+}
+
+.plugin-meta-item dd {
+  margin: 0;
   word-break: break-all;
 }
 
+.plugin-meta-item code {
+  font-size: 0.85em;
+}
+
+/* 卡片的操作区：按钮一行，快速更新开关/参数另起一行 */
 .plugin-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.plugin-footer-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
+  margin-top: auto; /* 按钮沉到卡片最下边；同一行的卡片按钮对齐 */
+}
+
+.plugin-footer-actions button,
+.plugin-footer-actions a[role="button"] {
+  padding: 0.5rem 0.9rem;
 }
 
 .plugin-footer form {
@@ -315,17 +358,27 @@ td .quick-edit select {
   display: flex;
 }
 
-.plugin-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+.plugin-dev-info {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--pico-muted-color);
 }
 
-.plugin-actions button {
-  margin: 0;
-  width: auto;
+.plugin-dev-info summary {
+  cursor: pointer;
+}
+
+.plugin-dev-info p {
+  margin: 0.35rem 0 0;
+}
+
+.plugin-dev-global {
+  margin-top: 1.5rem;
+}
+
+.plugin-dev-global ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
 }
 
 .plugin-trace {
@@ -349,32 +402,40 @@ td .quick-edit select {
   color: #fff;
 }
 
-/* 插件页顶部：视图切换 + 全部重载 */
+/* 插件页顶部：视图切换（小号分段控件，靠右） */
 .plugin-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
 
 .plugin-view-switch {
-  display: flex;
-  gap: 0.25rem;
+  display: inline-flex;
+  width: auto;
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+  overflow: hidden;
 }
 
-.plugin-view-switch a {
+.plugin-view-switch a[role="button"] {
   margin: 0;
-  padding: 0.35rem 0.9rem;
-  white-space: nowrap;
+  width: auto;
+  padding: 0.25rem 0.85rem;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: 0.85rem;
+  line-height: 1.6;
 }
 
-.plugin-toolbar .plugin-actions {
-  margin: 0;
+.plugin-view-switch a[role="button"] + a[role="button"] {
+  border-left: 1px solid var(--pico-muted-border-color);
 }
 
-/* 网格视图：一张卡片一列信息，窄屏自动降成一列 */
+/* 网格（卡片）视图：三行用 subgrid 对齐，按钮不会一行高一行低 */
 .plugin-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
@@ -383,9 +444,18 @@ td .quick-edit select {
 }
 
 .plugin-grid-card {
+  display: grid;
+  grid-template-rows: auto auto auto; /* 不支持 subgrid 时的回退 */
+  grid-template-rows: subgrid;
+  grid-row: span 3;
+  row-gap: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.plugin-grid-body {
   display: flex;
   flex-direction: column;
-  margin: 0;
   min-width: 0;
 }
 
@@ -415,7 +485,7 @@ td .quick-edit select {
 }
 
 .plugin-grid-card .plugin-footer {
-  margin-top: auto;
+  margin-top: 0.75rem;
   padding-top: 0.75rem;
 }
 
@@ -423,9 +493,7 @@ td .quick-edit select {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  margin: 0.75rem 0 0;
-  padding-top: 0.6rem;
-  border-top: 1px dashed var(--pico-muted-border-color);
+  margin: 0;
   font-size: 0.85rem;
 }
 
@@ -454,14 +522,15 @@ td .quick-edit select {
 }
 
 .plugin-quick-params {
-  margin: 0.75rem 0 0;
+  margin: 0;
   padding-top: 0.6rem;
   border-top: 1px dashed var(--pico-muted-border-color);
 }
 
 .plugin-quick-param {
+  position: relative;
   display: block;
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.4rem;
   font-size: 0.8rem;
 }
 
@@ -469,15 +538,66 @@ td .quick-edit select {
   margin-bottom: 0;
 }
 
-.plugin-quick-param input {
-  margin: 0.2rem 0 0;
+.plugin-quick-param-head {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
-.plugin-quick-param small {
-  display: block;
-  margin-top: 0.2rem;
+.plugin-quick-param-head label {
+  margin: 0;
+}
+
+/* 参数输入框：比 Pico 默认高度矮一些 */
+.plugin-quick-param input {
+  height: auto;
+  min-height: 0;
+  margin: 0.15rem 0 0;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+/* 参数说明：默认只显示 ⍰，鼠标悬停/键盘聚焦时浮现文本框 */
+.plugin-param-help {
+  display: inline-flex;
+  align-items: center;
   color: var(--pico-muted-color);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: help;
+}
+
+.plugin-param-help:hover,
+.plugin-param-help:focus {
+  color: var(--pico-color);
+}
+
+.plugin-param-help:focus-visible {
+  outline: 2px solid var(--pico-primary);
+  outline-offset: 2px;
+}
+
+.plugin-param-help-text {
+  display: none;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.3rem);
+  z-index: 20;
+  width: 100%;
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+  background: var(--pico-card-background-color);
+  box-shadow: var(--pico-card-box-shadow);
+  color: var(--pico-color);
   font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.plugin-param-help:hover .plugin-param-help-text,
+.plugin-param-help:focus .plugin-param-help-text {
+  display: block;
 }
 
 .plugin-quick-required {

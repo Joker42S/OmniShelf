@@ -3,7 +3,7 @@
 id = "asmr_playlist"
 title = "ASMR.ONE 收藏抓取"
 version = "1.0.0"
-description = "从 asmr.one 的公开播放列表或私人收藏（需要认证）抓全量/增量/指定范围的作品，存成可直接导入的 JSON，并用内置 importer asmr_one 直接入库"
+description = "同步 ASMR.ONE 的公开播放列表或私人收藏到 ASMR 书架（支持增量）"
 author = "OmniShelf"
 entry = "plugin.py"
 # query：查库里的 asmr 条目数、确认 importer 在不在

@@ -3,7 +3,7 @@
 id = "steam_fetch"
 title = "Steam 收藏抓取"
 version = "1.0.0"
-description = "抓取 Steam 游戏库/愿望单（名称/时长/价格/封面链接），一键入库游戏书架"
+description = "同步 Steam 游戏库和愿望单到游戏书架"
 author = "OmniShelf"
 entry = "plugin.py"
 # query：读配置/统计；import：抓完直接走宿主导入链路入库。

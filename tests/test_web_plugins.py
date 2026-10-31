@@ -318,8 +318,13 @@ def test_plugins_grid_is_default_with_view_switch(settings: Settings, client: Te
 
     detail = client.get("/plugins?view=detail").text
     assert 'class="plugin-card"' in detail
-    assert "一键快速更新" not in detail
+    assert "一键快速更新" in detail  # 两个视图能力一致
+    assert 'name="quick_plugin" value="quick"' in detail
+    assert 'name="quick_param:quick:token"' in detail
     assert 'href="/plugins?view=grid"' in detail
+    assert "卡片" in detail and "列表" in detail
+    assert "全部重载" not in grid and "全部重载" not in detail
+    assert "重载</button>" not in grid and "重载</button>" not in detail
 
 
 def test_quick_update_runs_selected_plugins_with_own_params(

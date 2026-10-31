@@ -1,0 +1,11 @@
+# 每个插件一个目录，这个文件是「说明书」+ 加载入口声明。
+[plugin]
+id = "netease_music"
+title = "网易云音乐收藏导入"
+version = "1.0.0"
+description = "扫码登录后，把网易云「我喜欢的音乐」同步到音乐书架"
+author = "OmniShelf"
+entry = "plugin.py"
+# import：抓完直接入库（走和上传页/CLI 完全一样的链路）
+# 抓取靠本机 ncm-cli 子进程，插件自己不发 HTTP，所以不需要 net 接口。
+requires = ["import"]

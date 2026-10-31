@@ -1,0 +1,9 @@
+{# 一键快速更新：两个视图共用。 #}
+<form id="quick-update-form" class="plugin-quick-bar" method="post"
+      action="/plugins/quick-update"
+      hx-post="/plugins/quick-update" hx-target="#quick-update-status" hx-swap="outerHTML">
+  <button type="submit">一键快速更新</button>
+  <small>只更新勾选了「快速更新」的插件，使用各自已保存的配置；需要的参数在对应卡片里填。口令仅用于本次更新，不会保存。</small>
+</form>
+
+{% include "_plugin_quick_status.html" %}

@@ -1,0 +1,44 @@
+{# 插件卡片上的操作按钮 + 快速更新控件：两个视图共用，保证能力一致。 #}
+{% macro plugin_actions(plugin) -%}
+<div class="plugin-footer-actions">
+  {% if plugin.has_page %}
+    <a href="/plugins/{{ plugin.id }}" role="button">打开</a>
+  {% else %}
+    <small>没有自己的页面</small>
+  {% endif %}
+  {% if plugin.log_file %}
+    <a href="/logs?plugin={{ plugin.id }}" role="button" class="secondary outline">日志</a>
+  {% endif %}
+  {% if plugin.supports_quick_update %}
+    <label class="plugin-quick-toggle">
+      <input type="checkbox" name="quick_plugin" value="{{ plugin.id }}"
+             form="quick-update-form" checked>
+      快速更新
+    </label>
+  {% endif %}
+</div>
+{%- endmacro %}
+
+{% macro quick_params(plugin) -%}
+{% if plugin.supports_quick_update and plugin.quick_params %}
+  <div class="plugin-quick-params">
+    {% for param in plugin.quick_params %}
+      {% set input_id = "quick-param-" ~ plugin.id ~ "-" ~ param.name %}
+      <div class="plugin-quick-param">
+        <div class="plugin-quick-param-head">
+          <label for="{{ input_id }}">{{ param.name }}</label>
+          {% if param.required %} <span class="plugin-quick-required" title="必填">*</span>{% endif %}
+          {% if param.description %}
+            <span class="plugin-param-help" tabindex="0" aria-label="参数说明">⍰<span class="plugin-param-help-text">{{ param.description }}</span></span>
+          {% endif %}
+        </div>
+        <input id="{{ input_id }}"
+               type="{{ 'password' if param.secret else 'text' }}"
+               name="quick_param:{{ plugin.id }}:{{ param.name }}"
+               form="quick-update-form"
+               autocomplete="{{ 'new-password' if param.secret else 'off' }}">
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+{%- endmacro %}

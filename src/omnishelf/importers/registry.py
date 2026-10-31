@@ -63,6 +63,7 @@ def load_builtin_importers() -> None:
         douban,
         json_file,
         music,
+        netease,
         picamanga,
         steam,
     )

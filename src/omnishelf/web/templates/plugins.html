@@ -1,11 +1,10 @@
 {% extends "base.html" %}
+{% from "_plugin_controls.html" import plugin_actions, quick_params %}
 {% block title %}插件 · OmniShelf{% endblock %}
 {% block content %}
 <hgroup>
   <h2>插件</h2>
-  <p>
-    管理已安装的插件。宿主当前向插件提供：<code>{{ interfaces|join(', ') }}</code>。
-  </p>
+  <p>提供同步外部收藏、分析数据等额外能力。</p>
 </hgroup>
 
 {% if error %}<p class="alert-error"><strong>出错了：</strong>{{ error }}</p>{% endif %}
@@ -13,32 +12,25 @@
   <p class="alert-ok">已重载：{% for item in reloaded %}<code>{{ item }}</code> {% endfor %}</p>
 {% endif %}
 
+{% if plugins %}
 <div class="plugin-toolbar">
   <div class="plugin-view-switch" role="group" aria-label="插件视图">
     <a href="/plugins?view=grid" role="button"
-       class="{{ 'contrast' if view == 'grid' else 'secondary outline' }}">网格</a>
+       class="{{ 'contrast' if view == 'grid' else 'secondary outline' }}"
+       {% if view == 'grid' %}aria-current="page"{% endif %}>卡片</a>
     <a href="/plugins?view=detail" role="button"
-       class="{{ 'contrast' if view == 'detail' else 'secondary outline' }}">详情</a>
+       class="{{ 'contrast' if view == 'detail' else 'secondary outline' }}"
+       {% if view == 'detail' %}aria-current="page"{% endif %}>列表</a>
   </div>
-  <form method="post" action="/plugins/reload" class="plugin-actions">
-    <button type="submit" class="secondary outline">全部重载</button>
-    <small>改动插件代码后刷新本页也会自动重载；用卡片上的按钮可以只重载一个。</small>
-  </form>
 </div>
+{% endif %}
 
 {% if not plugins %}
   <article>
     <p>还没有插件。在 <code>plugins/</code> 下创建一个插件目录即可开始使用。</p>
   </article>
 {% elif view == 'grid' %}
-  <form id="quick-update-form" class="plugin-quick-bar" method="post"
-        action="/plugins/quick-update"
-        hx-post="/plugins/quick-update" hx-target="#quick-update-status" hx-swap="outerHTML">
-    <button type="submit">一键快速更新</button>
-    <small>只更新卡片上勾选「快速更新」的插件，用的是它们已保存的配置；各插件需要的参数在卡片里填。参数不落盘、不进日志。</small>
-  </form>
-
-  {% include "_plugin_quick_status.html" %}
+  {% include "_plugin_quick_bar.html" %}
 
   <div class="plugin-grid">
     {% for plugin in plugins %}
@@ -56,55 +48,27 @@
         {% endif %}
       </header>
 
-      <p class="plugin-grid-id">
-        <code>{{ plugin.id }}</code>
-        {% if plugin.version %} · v{{ plugin.version }}{% endif %}
-      </p>
-      {% if plugin.description %}<p class="plugin-grid-desc">{{ plugin.description }}</p>{% endif %}
-      {% if plugin.error %}
-        <p class="alert-error plugin-grid-error"><strong>加载失败：</strong>{{ plugin.error.splitlines()[0] }}</p>
-      {% endif %}
+      <div class="plugin-grid-body">
+        <p class="plugin-grid-id">
+          <code>{{ plugin.id }}</code>
+          {% if plugin.version %} · v{{ plugin.version }}{% endif %}
+        </p>
+        {% if plugin.description %}<p class="plugin-grid-desc">{{ plugin.description }}</p>{% endif %}
+        {% if plugin.error %}
+          <p class="alert-error plugin-grid-error"><strong>加载失败：</strong>{{ plugin.error.splitlines()[0] }}</p>
+        {% endif %}
+      </div>
 
       <footer class="plugin-footer">
-        {% if plugin.has_page %}
-          <a href="/plugins/{{ plugin.id }}" role="button">打开</a>
-        {% else %}
-          <small>没有自己的页面</small>
-        {% endif %}
-        {% if plugin.log_file %}
-          <a href="/logs?plugin={{ plugin.id }}" role="button" class="secondary outline">日志</a>
-        {% endif %}
-        <form method="post" action="/plugins/reload">
-          <input type="hidden" name="plugin_id" value="{{ plugin.id }}">
-          <button type="submit" class="secondary outline">重载</button>
-        </form>
+        {{ quick_params(plugin) }}
+        {{ plugin_actions(plugin) }}
       </footer>
-
-      {% if plugin.supports_quick_update %}
-        <label class="plugin-quick-toggle">
-          <input type="checkbox" name="quick_plugin" value="{{ plugin.id }}"
-                 form="quick-update-form" checked>
-          快速更新
-        </label>
-        {% if plugin.quick_params %}
-          <div class="plugin-quick-params">
-            {% for param in plugin.quick_params %}
-              <label class="plugin-quick-param">
-                {{ param.name }}{% if param.required %} <span class="plugin-quick-required" title="必填">*</span>{% endif %}
-                <input type="{{ 'password' if param.secret else 'text' }}"
-                       name="quick_param:{{ plugin.id }}:{{ param.name }}"
-                       form="quick-update-form"
-                       autocomplete="{{ 'new-password' if param.secret else 'off' }}">
-                {% if param.description %}<small>{{ param.description }}</small>{% endif %}
-              </label>
-            {% endfor %}
-          </div>
-        {% endif %}
-      {% endif %}
     </article>
     {% endfor %}
   </div>
 {% else %}
+  {% include "_plugin_quick_bar.html" %}
+
   {% for plugin in plugins %}
   <article class="plugin-card">
     <header>
@@ -122,49 +86,63 @@
       {% endif %}
     </header>
 
-    {% if plugin.description %}<p>{{ plugin.description }}</p>{% endif %}
-    <p class="plugin-meta">
-      {% if plugin.author %}作者 {{ plugin.author }} · {% endif %}
-      {% if plugin.requires %}需要接口 <code>{{ plugin.requires|join(', ') }}</code> · {% endif %}
-      {% if plugin.loaded_at %}加载于 {{ plugin.loaded_at|local_time }} · {% endif %}
-      目录 <code>{{ plugin.directory }}</code>
-    </p>
+    {% if plugin.description %}<p class="plugin-desc">{{ plugin.description }}</p>{% endif %}
+
+    {% if plugin.author or plugin.requires or plugin.loaded_at %}
+      <dl class="plugin-meta-list">
+        {% if plugin.author %}
+          <div class="plugin-meta-item"><dt>作者</dt><dd>{{ plugin.author }}</dd></div>
+        {% endif %}
+        {% if plugin.requires %}
+          <div class="plugin-meta-item"><dt>需要接口</dt>
+            <dd>{% for interface in plugin.requires %}<code>{{ interface }}</code>{% if not loop.last %} {% endif %}{% endfor %}</dd>
+          </div>
+        {% endif %}
+        {% if plugin.loaded_at %}
+          <div class="plugin-meta-item"><dt>加载于</dt><dd>{{ plugin.loaded_at|local_time }}</dd></div>
+        {% endif %}
+      </dl>
+    {% endif %}
 
     {% if plugin.error %}
       <p class="alert-error"><strong>加载失败：</strong><pre class="plugin-trace">{{ plugin.error }}</pre></p>
     {% endif %}
 
-    {% if plugin.logs %}
-      <details>
-        <summary>插件日志（内存里最近 {{ plugin.logs|length }} 条）</summary>
-        <pre class="plugin-trace">{% for line in plugin.logs %}{{ line }}
-{% endfor %}</pre>
-      </details>
-    {% endif %}
-
-    {% if plugin.log_file %}
-      <p class="plugin-meta">日志文件 <code>{{ plugin.log_file }}</code>（宿主统一收集，
-        插件说的和宿主记的都在这一个文件里）。</p>
-    {% endif %}
-
     <footer class="plugin-footer">
-      {% if plugin.has_page %}
-        <a href="/plugins/{{ plugin.id }}" role="button">打开页面</a>
-      {% else %}
-        <small>这个插件没有自己的页面。</small>
-      {% endif %}
-      {% if plugin.log_file %}
-        <a href="/logs?plugin={{ plugin.id }}" role="button" class="secondary outline">看日志</a>
-      {% endif %}
-      <form method="post" action="/plugins/reload">
-        <input type="hidden" name="plugin_id" value="{{ plugin.id }}">
-        <button type="submit" class="secondary outline">重载</button>
-      </form>
-      {% if plugin.homepage %}
-        <a href="{{ plugin.homepage }}" target="_blank" rel="noreferrer noopener">主页</a>
-      {% endif %}
+      {{ quick_params(plugin) }}
+      {{ plugin_actions(plugin) }}
     </footer>
+
+    <details class="plugin-dev-info">
+      <summary>开发者信息</summary>
+      <dl class="plugin-meta-list">
+        {% if plugin.directory %}
+          <div class="plugin-meta-item"><dt>目录</dt><dd><code>{{ plugin.directory }}</code></dd></div>
+        {% endif %}
+        {% if plugin.log_file %}
+          <div class="plugin-meta-item"><dt>日志文件</dt><dd><code>{{ plugin.log_file }}</code></dd></div>
+        {% endif %}
+      </dl>
+      <p><small>日志文件由宿主统一收集，插件日志和宿主日志都写在这一个文件里。</small></p>
+      {% if plugin.logs %}
+        <details>
+          <summary>插件日志（内存里最近 {{ plugin.logs|length }} 条）</summary>
+          <pre class="plugin-trace">{% for line in plugin.logs %}{{ line }}
+{% endfor %}</pre>
+        </details>
+      {% endif %}
+    </details>
   </article>
   {% endfor %}
 {% endif %}
+
+<details class="plugin-dev-info plugin-dev-global">
+  <summary>开发者信息</summary>
+  <ul>
+    <li>宿主接口：<code>{{ interfaces|join(', ') }}</code></li>
+    <li>插件目录：<code>{{ plugins_dir }}</code></li>
+    <li>插件数据目录：<code>{{ plugins_data_dir }}</code></li>
+  </ul>
+  <p><small>插件运行在宿主进程里，可以读写本机文件；装插件等于装程序，只装可信来源。改完插件代码后刷新本页会自动重载。</small></p>
+</details>
 {% endblock %}
