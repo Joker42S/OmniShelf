@@ -4,7 +4,7 @@
 
 **一个本地的个人收藏管理系统，将不同来源和类型的作品统一归档，方便查询与备份。**
 
-![版本](https://img.shields.io/badge/version-0.1.0--alpha-blue)
+![版本](https://img.shields.io/badge/version-0.8.0--alpha-blue)
 ![Python](https://img.shields.io/badge/python-3.11%2B-green)
 ![运行期](https://img.shields.io/badge/runtime-offline--first-orange)
 ![存储](https://img.shields.io/badge/storage-SQLite-lightgrey)
@@ -83,7 +83,7 @@
 
 ## 项目状态
 
-早期版本（**v0.1.0-alpha**），核心功能闭环已实现，可正常使用。欢迎试用并反馈。
+预发布版本（**v0.8.0-alpha**），核心功能闭环已实现，可正常使用。欢迎试用并反馈。
 
 ---
 
@@ -155,7 +155,7 @@ omnishelf import douban_movies.json --importer douban_movies
 | `/items/{id}` | 详情：封面、通用信息与类型专属字段分块排列、来源标识与导入时间线、封面上传 |
 | `/upload` | 上传数据页：选 importer + 上传文件，原始文件按来源存档 |
 | `/review` | 待复核：模糊匹配到的疑似重复，左右并排对比后由你决定合并还是跳过 |
-| `/plugins` | 插件列表：状态、日志入口、重载 |
+| `/plugins` | 插件列表：状态、一键快速更新（增量 + 导入）、日志入口、重载 |
 | `/plugins/{id}` | 插件自己的页面（抓取表单、进度条、报告） |
 | `/logs` | 运行日志：宿主与插件写在同一条时间线上，实时刷新，按插件、级别、条数筛 |
 | `/api/docs` | JSON 接口文档（`/api/items`、`/api/stats`、`/api/review`、`/api/health` …） |
@@ -210,6 +210,8 @@ omnishelf demo [--keep] [--out PATH] [--demo-dir DIR]
 | `asmr_playlist` | ASMR.ONE 的公开播放列表或私人收藏（全量 / 增量 / 指定范围） | `asmr_one` |
 | `copymanga_fetch` | 拷贝漫画的书架收藏（增量 / 全量，全量顺带标出已取消收藏的） | `copymanga` |
 | `picamanga_fetch` | 哔咔（Picacomic）收藏夹（增量 / 全量，可配代理） | `picamanga` |
+| `steam_fetch` | Steam 游戏库与愿望单（补全商店信息，封面只存链接，价格不入库） | `steam` |
+| `netease_music` | 网易云「我喜欢的音乐」：扫码登录，靠本机 `ncm-cli` 同步（增量 / 全量） | `netease_music` |
 | `music_import` | 本地音乐：用系统选择框挑一个文件夹或多个文件，读标签生成清单后直接入库 | `music_files` |
 | `kind_chart` | 按类型 / 状态画条状图，同时是**插件模板**——照它抄一个自己的插件最快 | — |
 
@@ -223,6 +225,8 @@ omnishelf demo [--keep] [--out PATH] [--demo-dir DIR]
 | `douban_movies` / `douban_books` / `douban_games` | 豆瓣插件产出的 JSON | movie / book / game |
 | `asmr_one` | ASMR.ONE 插件产出的 JSON（顶层 `{"works": [...]}`） | asmr |
 | `copymanga` / `picamanga` | 对应漫画插件产出的 JSON | manga |
+| `steam` | `steam_fetch` 插件产出的 JSON（游戏库与愿望单） | game |
+| `netease_music` | `netease_music` 插件产出的歌曲快照 | music |
 | `music_files` | `omnishelf scan-music` 产出的清单，也认手写的 `{"items": [...]}` / `[...]` | music |
 | `itunes_xml` | iTunes「资料库导出 XML」（标准库直读，不装 mutagen） | music |
 | `json_movies` / `json_books` | 通用 JSON（`[...]` 或 `{"items": [...]}`，也认 `records` / `data` / `works`） | movie / book |
@@ -299,6 +303,8 @@ omnishelf demo [--keep] [--out PATH] [--demo-dir DIR]
 │   ├── asmr_playlist/      ASMR.ONE 播放列表 / 私人收藏抓取
 │   ├── copymanga_fetch/    拷贝漫画书架抓取
 │   ├── picamanga_fetch/    哔咔收藏夹抓取
+│   ├── steam_fetch/        Steam 游戏库 / 愿望单抓取
+│   ├── netease_music/      网易云「我喜欢的音乐」导入
 │   └── music_import/       本地音乐导入
 ├── tests/                  全离线测试 + 合成数据夹具（不含任何真实收藏数据）
 │   ├── fixtures/           importer 用的合成样本

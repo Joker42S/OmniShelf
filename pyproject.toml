@@ -1,6 +1,6 @@
 [project]
 name = "omnishelf"
-version = "0.1.0-alpha"
+version = "0.8.0-alpha"
 description = "OmniShelf：本地优先的个人收藏管理系统（图书 / 漫画 / 影视 / 音乐 / 游戏）"
 readme = "README.md"
 requires-python = ">=3.11"
